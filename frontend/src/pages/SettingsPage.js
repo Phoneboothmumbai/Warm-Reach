@@ -421,6 +421,181 @@ export const SettingsPage = () => {
           </Card>
         </TabsContent>
 
+        {/* Integrations Tab */}
+        {isAdmin && (
+          <TabsContent value="integrations" className="space-y-6">
+            <Card className="card-surface">
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="flex items-center gap-2">
+                      <MessageCircle className="w-5 h-5 text-green-600 dark:text-green-400" />
+                      WhatsApp Business Cloud API
+                    </CardTitle>
+                    <CardDescription>
+                      Connect your WhatsApp Business account to send outreach messages
+                    </CardDescription>
+                  </div>
+                  {whatsappConfig?.is_configured && (
+                    <Badge className="status-safe">
+                      <CheckCircle className="w-3 h-3 mr-1" />
+                      Connected
+                    </Badge>
+                  )}
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {whatsappConfig?.is_configured ? (
+                  <>
+                    <Alert className="bg-green-500/10 border-green-500/30">
+                      <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400" />
+                      <AlertTitle>WhatsApp is configured</AlertTitle>
+                      <AlertDescription>
+                        Phone Number ID: <code className="font-mono bg-muted px-1 rounded">{whatsappConfig.phone_number_id}</code>
+                        {whatsappConfig.verified_at && (
+                          <span className="text-xs ml-2">
+                            (Verified: {new Date(whatsappConfig.verified_at).toLocaleDateString()})
+                          </span>
+                        )}
+                      </AlertDescription>
+                    </Alert>
+                    
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setWhatsappConfig({ ...whatsappConfig, is_configured: false })}
+                        data-testid="whatsapp-update-btn"
+                      >
+                        Update Credentials
+                      </Button>
+                      {isOwner && (
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          onClick={handleDeleteWhatsapp}
+                          data-testid="whatsapp-delete-btn"
+                        >
+                          <Trash2 className="w-4 h-4 mr-1" />
+                          Remove
+                        </Button>
+                      )}
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <Alert className="bg-muted/50">
+                      <AlertTriangle className="h-4 w-4" />
+                      <AlertTitle>Setup Required</AlertTitle>
+                      <AlertDescription className="text-sm">
+                        To send WhatsApp messages, you need credentials from the Meta Business platform.{" "}
+                        <a
+                          href="https://developers.facebook.com/docs/whatsapp/cloud-api/get-started"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-primary hover:underline inline-flex items-center gap-1"
+                        >
+                          Get started with WhatsApp Cloud API
+                          <ExternalLink className="w-3 h-3" />
+                        </a>
+                      </AlertDescription>
+                    </Alert>
+
+                    <div className="space-y-4 pt-2">
+                      <div className="space-y-2">
+                        <Label htmlFor="wa-phone-id">Phone Number ID</Label>
+                        <Input
+                          id="wa-phone-id"
+                          placeholder="e.g., 123456789012345"
+                          value={whatsappForm.phone_number_id}
+                          onChange={(e) => setWhatsappForm({ ...whatsappForm, phone_number_id: e.target.value })}
+                          disabled={!isOwner}
+                          data-testid="whatsapp-phone-id-input"
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          Found in Meta Developer Dashboard → WhatsApp → Getting Started
+                        </p>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="wa-access-token">Permanent Access Token</Label>
+                        <div className="relative">
+                          <Input
+                            id="wa-access-token"
+                            type={showAccessToken ? "text" : "password"}
+                            placeholder="Enter your access token"
+                            value={whatsappForm.access_token}
+                            onChange={(e) => setWhatsappForm({ ...whatsappForm, access_token: e.target.value })}
+                            disabled={!isOwner}
+                            className="pr-10"
+                            data-testid="whatsapp-access-token-input"
+                          />
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="absolute right-0 top-0 h-full px-3"
+                            onClick={() => setShowAccessToken(!showAccessToken)}
+                            data-testid="toggle-token-visibility"
+                          >
+                            {showAccessToken ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                          </Button>
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          Generate a permanent token in Meta Dashboard → System Users
+                        </p>
+                      </div>
+
+                      {isOwner && (
+                        <Button
+                          onClick={handleSaveWhatsapp}
+                          disabled={savingWhatsapp || !whatsappForm.phone_number_id || !whatsappForm.access_token}
+                          data-testid="save-whatsapp-btn"
+                        >
+                          {savingWhatsapp ? (
+                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          ) : (
+                            <Save className="w-4 h-4 mr-2" />
+                          )}
+                          Verify & Save Credentials
+                        </Button>
+                      )}
+                    </div>
+                  </>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Email Integration Placeholder */}
+            <Card className="card-surface opacity-60">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Mail className="w-5 h-5 text-primary" />
+                  AWS SES Email
+                  <Badge variant="outline" className="ml-2">Coming Soon</Badge>
+                </CardTitle>
+                <CardDescription>
+                  Connect AWS Simple Email Service for email outreach
+                </CardDescription>
+              </CardHeader>
+            </Card>
+
+            {/* LinkedIn Integration Placeholder */}
+            <Card className="card-surface opacity-60">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Linkedin className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                  LinkedIn
+                  <Badge variant="outline" className="ml-2">Coming Soon</Badge>
+                </CardTitle>
+                <CardDescription>
+                  Connect LinkedIn for company page post scheduling
+                </CardDescription>
+              </CardHeader>
+            </Card>
+          </TabsContent>
+        )}
+
         {/* Team Tab */}
         {isAdmin && (
           <TabsContent value="team">
