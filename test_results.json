@@ -1,8 +1,8 @@
 {
-  "timestamp": "2026-02-07T09:45:03.996601",
-  "total_tests": 2,
-  "passed_tests": 1,
-  "success_rate": 50.0,
+  "timestamp": "2026-02-07T09:45:22.401194",
+  "total_tests": 18,
+  "passed_tests": 18,
+  "success_rate": 100.0,
   "results": [
     {
       "test": "Health Check",
@@ -11,8 +11,88 @@
     },
     {
       "test": "User Registration",
-      "success": false,
-      "details": "{'detail': [{'type': 'value_error', 'loc': ['body', 'email'], 'msg': 'value is not a valid email address: The part after the @-sign is a special-use or reserved name that cannot be used with email.', 'input': 'test_094503@warmreach.test', 'ctx': {'reason': 'The part after the @-sign is a special-use or reserved name that cannot be used with email.'}}], 'status_code': 422}"
+      "success": true,
+      "details": "User ID: ff0a21bb-736d-4257-b0b0-6bfba2d241ff"
+    },
+    {
+      "test": "User Login",
+      "success": true,
+      "details": "Token received"
+    },
+    {
+      "test": "Get Current User",
+      "success": true,
+      "details": "User: Test User"
+    },
+    {
+      "test": "Dashboard Analytics",
+      "success": true,
+      "details": "Contacts: 0, Messages: 0"
+    },
+    {
+      "test": "Create Contact",
+      "success": true,
+      "details": "Contact ID: 1dcbeb75-82a9-44e7-9b73-8f1000fc2938"
+    },
+    {
+      "test": "Get Contacts",
+      "success": true,
+      "details": "Found 1 contacts"
+    },
+    {
+      "test": "Update Contact",
+      "success": true,
+      "details": "Contact updated successfully"
+    },
+    {
+      "test": "Create Blueprint",
+      "success": true,
+      "details": "Blueprint ID: bcba4687-b4a8-4365-8cd4-c027f46db99e"
+    },
+    {
+      "test": "Get Blueprints",
+      "success": true,
+      "details": "Found 1 blueprints"
+    },
+    {
+      "test": "Generate Message",
+      "success": true,
+      "details": "Message ID: 89a2eda9-e329-4449-ba9e-81e16e443db8"
+    },
+    {
+      "test": "Get Messages",
+      "success": true,
+      "details": "Found 1 messages"
+    },
+    {
+      "test": "Approve Message",
+      "success": true,
+      "details": "Approved 1 message(s)"
+    },
+    {
+      "test": "Get Inbox",
+      "success": true,
+      "details": "Found 0 replies"
+    },
+    {
+      "test": "Get Tenant Settings",
+      "success": true,
+      "details": "Tenant: Test's Organization"
+    },
+    {
+      "test": "Get Tenant Users",
+      "success": true,
+      "details": "Found 1 users"
+    },
+    {
+      "test": "Delete Contact (Cleanup)",
+      "success": true,
+      "details": "Contact deleted"
+    },
+    {
+      "test": "Delete Blueprint (Cleanup)",
+      "success": true,
+      "details": "Blueprint deleted"
     }
   ]
 }
