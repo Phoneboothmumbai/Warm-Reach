@@ -130,3 +130,40 @@ User reported issues with the original message generation:
 - Email sending (AWS SES)
 - WhatsApp sending (Cloud API)
 - Messages stored in DB but not actually sent
+
+---
+
+## Update: Bulk Blueprint & AI Generation (Feb 2026)
+
+### Features Added
+
+#### 1. CSV Blueprint Import
+- Upload CSV with blueprints
+- Required columns: name, channel, structure
+- Optional: intent, angle, tone, description, cooldown_days
+- All imported blueprints require approval
+
+#### 2. AI Blueprint Generation (Single)
+- Select channel, intent, angle, tone
+- Optional: industry, target_role, additional_context
+- AI generates professional outreach template
+- Requires approval before use
+
+#### 3. AI Blueprint Generation (Batch)
+- Multi-select channels, intents, angles
+- Generates all combinations (e.g., 2×3×3 = 18 blueprints)
+- All require approval
+
+#### 4. Bulk Approve
+- Select multiple pending blueprints
+- Approve all at once
+
+### API Endpoints Added
+- `POST /api/blueprints/generate-ai` - Single AI blueprint
+- `POST /api/blueprints/generate-batch-ai` - Batch AI generation
+- `POST /api/blueprints/import` - CSV import
+- `POST /api/blueprints/approve-bulk` - Bulk approve
+
+### Test Results
+- Backend: 100% (24/24 tests passed)
+- All new features verified working
