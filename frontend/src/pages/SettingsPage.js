@@ -12,7 +12,11 @@ import {
   Loader2,
   History,
   AlertTriangle,
-  CheckCircle
+  CheckCircle,
+  Eye,
+  EyeOff,
+  Trash2,
+  ExternalLink
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
