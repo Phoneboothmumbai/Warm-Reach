@@ -123,13 +123,11 @@ Generate ONLY the message text, nothing else. No subject line, no signature bloc
 
         llm_chat = LlmChat(
             api_key=EMERGENT_LLM_KEY,
-            model="gpt-5.2"
-        )
-        
-        response = await llm_chat.chat(
-            user_message=prompt,
+            session_id=f"batch_gen_{contact.get('id', 'unknown')}",
             system_message="You are a professional B2B outreach writer. Generate unique, personalized messages that feel human and respect the recipient. Never repeat the same phrasing twice."
         )
+        
+        response = await llm_chat.chat(prompt)
         
         return response.strip()
         
