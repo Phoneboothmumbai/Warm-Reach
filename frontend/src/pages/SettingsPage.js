@@ -155,6 +155,63 @@ export const SettingsPage = () => {
     }
   };
 
+  const handleSaveWhatsapp = async () => {
+    if (!isOwner) {
+      toast.error("Only owner can configure WhatsApp settings");
+      return;
+    }
+
+    if (!whatsappForm.phone_number_id || !whatsappForm.access_token) {
+      toast.error("Please enter both Phone Number ID and Access Token");
+      return;
+    }
+
+    setSavingWhatsapp(true);
+    try {
+      const response = await authFetch(`${API}/settings/whatsapp`, {
+        method: "POST",
+        body: JSON.stringify(whatsappForm)
+      });
+
+      if (response.ok) {
+        toast.success("WhatsApp credentials verified and saved!");
+        setWhatsappForm(prev => ({ ...prev, access_token: "" }));
+        setShowAccessToken(false);
+        fetchSettings();
+      } else {
+        const error = await response.json();
+        toast.error(error.detail || "Failed to save WhatsApp settings");
+      }
+    } catch (error) {
+      toast.error("Failed to save WhatsApp settings");
+    } finally {
+      setSavingWhatsapp(false);
+    }
+  };
+
+  const handleDeleteWhatsapp = async () => {
+    if (!confirm("Are you sure you want to remove WhatsApp configuration? You won't be able to send WhatsApp messages until you reconfigure.")) {
+      return;
+    }
+
+    try {
+      const response = await authFetch(`${API}/settings/whatsapp`, {
+        method: "DELETE"
+      });
+
+      if (response.ok) {
+        toast.success("WhatsApp configuration removed");
+        setWhatsappConfig(null);
+        setWhatsappForm({ phone_number_id: "", access_token: "" });
+      } else {
+        const error = await response.json();
+        toast.error(error.detail || "Failed to remove WhatsApp settings");
+      }
+    } catch (error) {
+      toast.error("Failed to remove WhatsApp settings");
+    }
+  };
+
   const roleColors = {
     owner: "bg-primary/15 text-primary border-primary/20",
     admin: "bg-secondary/15 text-secondary border-secondary/20",
