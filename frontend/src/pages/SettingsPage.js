@@ -248,6 +248,12 @@ export const SettingsPage = () => {
             Organization
           </TabsTrigger>
           {isAdmin && (
+            <TabsTrigger value="integrations" data-testid="settings-integrations-tab">
+              <MessageCircle className="w-4 h-4 mr-2" />
+              Integrations
+            </TabsTrigger>
+          )}
+          {isAdmin && (
             <TabsTrigger value="team" data-testid="settings-team-tab">
               <Users className="w-4 h-4 mr-2" />
               Team
