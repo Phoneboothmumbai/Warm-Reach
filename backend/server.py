@@ -121,13 +121,12 @@ RULES:
 
 Generate ONLY the message text, nothing else. No subject line, no signature block unless in template."""
 
-        config = ChatConfig(
+        llm_chat = LlmChat(
             api_key=EMERGENT_LLM_KEY,
             model="gpt-5.2"
         )
         
-        response = await chat(
-            config=config,
+        response = await llm_chat.chat(
             user_message=prompt,
             system_message="You are a professional B2B outreach writer. Generate unique, personalized messages that feel human and respect the recipient. Never repeat the same phrasing twice."
         )
