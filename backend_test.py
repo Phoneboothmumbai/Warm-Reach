@@ -415,6 +415,7 @@ class WarmReachAPITester:
         # Messages workflow
         self.test_generate_message()
         self.test_get_messages()
+        self.test_batch_generate_messages()
         self.test_approve_message()
         
         # Inbox
