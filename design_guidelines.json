@@ -1,0 +1,183 @@
+{
+  "design_system": {
+    "identity": {
+      "name": "Context-Aware Outreach SaaS",
+      "metaphor": "The Cultivated Command Center",
+      "vibe": "Disciplined, Architectural, Botanical, Trustworthy",
+      "principles": [
+        "Fusion: Swiss Precision x Botanical Growth",
+        "Emotion: Calm Control, not Aggressive Growth",
+        "Content: Data is the hero, but context is the story",
+        "Safety First: UI should physically prevent mistakes"
+      ]
+    },
+    "typography": {
+      "fonts": {
+        "heading": {
+          "family": "Merriweather, serif",
+          "weights": ["300", "400", "700", "900"],
+          "usage": "All H1-H3 headings. Adds editorial authority and human touch."
+        },
+        "body": {
+          "family": "Inter, sans-serif",
+          "weights": ["400", "500", "600"],
+          "usage": "UI text, paragraphs, inputs. Optimized for legibility."
+        },
+        "mono": {
+          "family": "JetBrains Mono, monospace",
+          "weights": ["400"],
+          "usage": "Logs, ID numbers, code snippets, technical data."
+        }
+      },
+      "scale": {
+        "h1": "text-4xl md:text-5xl font-black tracking-tight leading-tight",
+        "h2": "text-3xl font-bold tracking-tight",
+        "h3": "text-2xl font-bold tracking-tight",
+        "body_lg": "text-lg leading-relaxed",
+        "body_base": "text-base leading-relaxed",
+        "caption": "text-sm text-muted-foreground uppercase tracking-widest font-semibold"
+      }
+    },
+    "colors": {
+      "palette": {
+        "primary": {
+          "name": "Royal Blue",
+          "hex": "#4169E1",
+          "usage": "Primary actions (Send, Create), Active states, Links",
+          "vars": {
+            "DEFAULT": "hsl(225, 73%, 57%)",
+            "foreground": "hsl(0, 0%, 100%)"
+          }
+        },
+        "secondary": {
+          "name": "Olive Green",
+          "hex": "#6B8E23",
+          "usage": "Safety indicators, 'Approved' states, Success messages, Secondary actions",
+          "vars": {
+            "DEFAULT": "hsl(80, 60%, 35%)",
+            "foreground": "hsl(0, 0%, 100%)"
+          }
+        },
+        "destructive": {
+          "name": "Signal Red",
+          "hex": "#EF4444",
+          "usage": "Spam risk, Do Not Contact, Delete",
+          "vars": {
+            "DEFAULT": "hsl(0, 84%, 60%)",
+            "foreground": "hsl(0, 0%, 98%)"
+          }
+        },
+        "background": {
+          "light": "#F8FAF8",
+          "dark": "#020617",
+          "note": "Light mode has a tiny tint of green (Mint Cream) to reduce sterility. Dark mode is deep Slate."
+        }
+      },
+      "gradients": {
+        "forbidden": "No full-screen gradients. No dark gradients.",
+        "allowed": "Subtle 'glow' effects in dark mode only (e.g., behind active cards)."
+      }
+    },
+    "layout": {
+      "spacing": {
+        "base": "Generous. Use p-6 or p-8 for cards. Gap-6 or Gap-8 for grids.",
+        "container": "max-w-7xl mx-auto px-4 sm:px-6 lg:px-8"
+      },
+      "grid_system": {
+        "dashboard": "Bento Grid (Mode B). Dense, data-correlated.",
+        "marketing": "Tetris Grid (Mode A). Asymmetrical, artistic.",
+        "rules": [
+          "Never fill 100% of the grid perfectly in marketing views.",
+          "Use col-span-2 or col-span-full for hero metrics."
+        ]
+      },
+      "surfaces": {
+        "cards": {
+          "light": "bg-white border border-border shadow-sm hover:shadow-md transition-all duration-200",
+          "dark": "bg-card border border-border/50 shadow-none hover:bg-accent/5 transition-all duration-200"
+        },
+        "glass": {
+          "usage": "Sticky headers, floating controls.",
+          "classes": "bg-background/80 backdrop-blur-xl border-b border-border/50"
+        }
+      }
+    },
+    "components": {
+      "buttons": {
+        "radius": "rounded-md",
+        "styles": {
+          "primary": "bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm",
+          "secondary": "bg-secondary text-secondary-foreground hover:bg-secondary/90 shadow-sm",
+          "outline": "border border-input bg-background hover:bg-accent hover:text-accent-foreground",
+          "ghost": "hover:bg-accent hover:text-accent-foreground"
+        }
+      },
+      "inputs": {
+        "radius": "rounded-md",
+        "style": "bg-background border-input focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+      },
+      "status_badges": {
+        "safe": "bg-secondary/15 text-secondary border border-secondary/20",
+        "warning": "bg-yellow-500/15 text-yellow-600 border border-yellow-500/20",
+        "danger": "bg-destructive/15 text-destructive border border-destructive/20",
+        "neutral": "bg-muted text-muted-foreground border border-border"
+      }
+    },
+    "visual_enhancers": {
+      "textures": "Use subtle noise overlay on the sidebar or dashboard background to reduce 'digital flatness'.",
+      "shadows": "Layered shadows. shadow-sm for cards, shadow-xl for modals.",
+      "borders": "1px borders are mandatory for separation. Do not rely on shadow alone."
+    },
+    "motion": {
+      "principles": [
+        "Micro-interactions for every click/hover.",
+        "Staggered entrance for lists/grids.",
+        "Smooth transitions (0.2s ease-out) for state changes."
+      ],
+      "reduced_motion": "Respect prefers-reduced-motion media query."
+    },
+    "accessibility": {
+      "contrast": "Ensure 4.5:1 for normal text. Use APCA where possible.",
+      "testing": "All interactive elements MUST have data-testid attribute.",
+      "focus": "Visible focus rings are mandatory."
+    }
+  },
+  "assets": {
+    "images": {
+      "dashboard_empty_state": {
+        "url": "https://images.unsplash.com/photo-1765371513276-a74f1ecbcf7d?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1MTN8MHwxfHNlYXJjaHwyfHxtaW5pbWFsaXN0JTIwb2ZmaWNlJTIwcGxhbnQlMjBhZXN0aGV0aWN8ZW58MHx8fHwxNzcwNDU2Nzc3fDA&ixlib=rb-4.1.0&q=85",
+        "alt": "Minimalist office with plants",
+        "usage": "Empty states, 404 pages, 'All caught up' screens."
+      },
+      "user_avatars": [
+        "https://images.unsplash.com/photo-1659353220597-71b8c6a56259?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjAzMzN8MHwxfHNlYXJjaHwxfHxwcm9mZXNzaW9uYWwlMjBkaXZlcnNlJTIwYnVzaW5lc3MlMjBwb3J0cmFpdHN8ZW58MHx8fHwxNzcwNDU2NzgxfDA&ixlib=rb-4.1.0&q=85",
+        "https://images.unsplash.com/photo-1650784854945-264d5b0b6b07?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjAzMzN8MHwxfHNlYXJjaHw0fHxwcm9mZXNzaW9uYWwlMjBkaXZlcnNlJTIwYnVzaW5lc3MlMjBwb3J0cmFpdHN8ZW58MHx8fHwxNzcwNDU2NzgxfDA&ixlib=rb-4.1.0&q=85"
+      ]
+    },
+    "icons": {
+      "library": "lucide-react",
+      "style": "Stroke width 1.5px or 2px. Consistent across app."
+    }
+  },
+  "implementation_guide": {
+    "file_structure": {
+      "components": "/app/frontend/src/components/ui/",
+      "pages": "/app/frontend/src/pages/",
+      "layouts": "/app/frontend/src/layouts/"
+    },
+    "rules": [
+      "Use named exports for components.",
+      "Use default exports for pages.",
+      "Do not use .tsx extension, use .js or .jsx.",
+      "Always add data-testid to interactive elements.",
+      "Do not use transparent backgrounds for dropdowns/modals."
+    ],
+    "universal_guidelines": [
+      "Avoid 'AI Slop' (generic centered layouts).",
+      "Create depth with z-index and shadows.",
+      "No universal 'transition: all'.",
+      "No 'text-align: center' on the main App container.",
+      "Use 'sonner' for toasts."
+    ]
+  }
+}
