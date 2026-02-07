@@ -139,6 +139,169 @@ Generate ONLY the message text, nothing else. No subject line, no signature bloc
         # Fallback to template replacement with variation
         return generate_fallback_message(contact, blueprint, previous_messages)
 
+async def generate_ai_blueprint(channel: str, intent: str, angle: str, tone: str, 
+                                 industry: str = None, target_role: str = None,
+                                 additional_context: str = None) -> Dict:
+    """Generate a blueprint structure using AI"""
+    try:
+        from emergentintegrations.llm.chat import LlmChat
+        
+        # Channel-specific guidance
+        channel_guidance = {
+            "email": """
+- Plain text only, 4-6 lines maximum
+- No emojis allowed
+- No links in first touch
+- One idea per email
+- Clear, soft CTA at the end
+- Structure: Hook → Observation → Insight → CTA""",
+            "whatsapp": """
+- Maximum 3 short lines
+- One question maximum
+- Conversational, friendly tone
+- Must end with opt-out line: "Reply STOP to opt out"
+- No formal greetings""",
+            "linkedin": """
+- No links in 70% of posts
+- Use numbers over adjectives
+- One thought per post
+- Line breaks for readability
+- Thought-leadership style"""
+        }
+        
+        intent_desc = {
+            "awareness": "Introduce yourself and create initial awareness",
+            "conversation": "Start a meaningful dialogue and engagement",
+            "follow_up": "Continue from previous interaction"
+        }
+        
+        angle_desc = {
+            "cost": "Focus on cost savings and ROI",
+            "risk": "Highlight risk mitigation and security",
+            "downtime": "Address reliability and uptime concerns",
+            "growth": "Emphasize growth potential and scaling",
+            "compliance": "Focus on regulatory and compliance needs"
+        }
+        
+        tone_desc = {
+            "calm_authority": "Professional, confident, and knowledgeable",
+            "observational": "Insightful, analytical, and thoughtful",
+            "direct": "Straightforward, clear, and action-oriented"
+        }
+        
+        prompt = f"""Generate a B2B outreach message blueprint for the following specifications:
+
+CHANNEL: {channel}
+{channel_guidance.get(channel, channel_guidance['email'])}
+
+INTENT: {intent} - {intent_desc.get(intent, '')}
+ANGLE: {angle} - {angle_desc.get(angle, '')}
+TONE: {tone} - {tone_desc.get(tone, '')}
+{f'TARGET INDUSTRY: {industry}' if industry else ''}
+{f'TARGET ROLE: {target_role}' if target_role else ''}
+{f'ADDITIONAL CONTEXT: {additional_context}' if additional_context else ''}
+
+Create a message template using these placeholders:
+- {{{{first_name}}}} - Contact's first name
+- {{{{last_name}}}} - Contact's last name  
+- {{{{company_name}}}} - Contact's company
+- {{{{job_title}}}} - Contact's job title
+
+RULES:
+1. Keep it natural and human-sounding
+2. Don't invent specific facts or claims
+3. Use the specified angle as the primary hook
+4. Match the tone precisely
+5. Follow channel constraints strictly
+6. Make it easy for AI to vary later
+
+Return ONLY the message template text, nothing else."""
+
+        llm_chat = LlmChat(
+            api_key=EMERGENT_LLM_KEY,
+            session_id=f"blueprint_gen_{uuid.uuid4()}",
+            system_message="You are an expert B2B copywriter specializing in outreach messaging. Create compelling, professional templates that feel human and respect the recipient."
+        )
+        
+        llm_chat = llm_chat.with_model("gpt-5.2")
+        response = llm_chat.send_message(prompt)
+        
+        # Generate a name for the blueprint
+        name_prompt = f"Generate a short, descriptive name (3-5 words) for a {channel} outreach blueprint with {intent} intent and {angle} angle. Return ONLY the name, nothing else."
+        name_response = llm_chat.send_message(name_prompt)
+        
+        return {
+            "name": name_response.strip().replace('"', ''),
+            "structure": response.strip(),
+            "description": f"AI-generated {channel} blueprint for {intent} with {angle} focus"
+        }
+        
+    except Exception as e:
+        logger.error(f"AI blueprint generation failed: {e}")
+        # Return a basic template as fallback
+        return generate_fallback_blueprint(channel, intent, angle, tone)
+
+def generate_fallback_blueprint(channel: str, intent: str, angle: str, tone: str) -> Dict:
+    """Fallback blueprint generation if AI fails"""
+    templates = {
+        "email": {
+            "cost": """Hi {{first_name}},
+
+I noticed {{company_name}} has been scaling rapidly. At this stage, many companies face rising operational costs that could be optimized.
+
+Would a brief chat about potential quick wins be worthwhile?
+
+Best regards""",
+            "risk": """Hi {{first_name}},
+
+Growing companies like {{company_name}} often encounter new security and operational risks as they scale.
+
+I'd be happy to share some insights we've seen work well. Worth a quick conversation?
+
+Best regards""",
+            "growth": """Hi {{first_name}},
+
+{{company_name}}'s growth trajectory caught my attention. Many leaders in your position are looking for ways to accelerate even further.
+
+Would you be open to exploring some proven growth strategies?
+
+Best regards"""
+        },
+        "whatsapp": {
+            "cost": """Hi {{first_name}}, noticed {{company_name}}'s growth - have you looked at optimizing operational costs lately?
+
+Reply STOP to opt out.""",
+            "risk": """Hi {{first_name}}, quick question - is {{company_name}} prepared for the security challenges that come with rapid growth?
+
+Reply STOP to opt out."""
+        },
+        "linkedin": {
+            "cost": """Interesting observation from working with growing companies:
+
+The biggest hidden cost isn't what you think.
+
+It's the opportunity cost of not optimizing early.
+
+Companies that address this at {{company_name}}'s stage see 2-3x better margins.""",
+            "growth": """What separates companies that scale smoothly from those that struggle?
+
+After working with dozens of growth-stage companies, I've noticed one pattern:
+
+The winners invest in infrastructure before they need it.
+
+Is {{company_name}} planning ahead?"""
+        }
+    }
+    
+    channel_templates = templates.get(channel, templates["email"])
+    structure = channel_templates.get(angle, list(channel_templates.values())[0])
+    
+    return {
+        "name": f"{intent.title()} - {angle.title()} Focus",
+        "structure": structure,
+        "description": f"Template-based {channel} blueprint for {intent} with {angle} focus"
+    }
+
 def generate_fallback_message(contact: Dict, blueprint: Dict, previous_messages: List[str] = None) -> str:
     """Fallback message generation with variation if AI fails"""
     structure = blueprint.get("structure", "")
