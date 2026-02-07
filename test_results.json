@@ -1,7 +1,7 @@
 {
-  "timestamp": "2026-02-07T10:06:19.474462",
-  "total_tests": 19,
-  "passed_tests": 19,
+  "timestamp": "2026-02-07T11:10:36.251813",
+  "total_tests": 24,
+  "passed_tests": 24,
   "success_rate": 100.0,
   "results": [
     {
@@ -12,7 +12,7 @@
     {
       "test": "User Registration",
       "success": true,
-      "details": "User ID: 74a25a85-0f1f-4172-81bc-5cad16f2be26"
+      "details": "User ID: 892115de-fb3a-49c5-bc4b-c30795674f67"
     },
     {
       "test": "User Login",
@@ -32,7 +32,7 @@
     {
       "test": "Create Contact",
       "success": true,
-      "details": "Contact ID: 682d6a80-0e28-4626-974c-f706984ffac9"
+      "details": "Contact ID: 039ed993-0415-4918-b00e-98c0f497d960"
     },
     {
       "test": "Get Contacts",
@@ -47,7 +47,7 @@
     {
       "test": "Create Blueprint",
       "success": true,
-      "details": "Blueprint ID: abcc2b01-d84c-4c27-9c46-df8f0b79a447"
+      "details": "Blueprint ID: 4a451777-4e03-4d36-a18a-8c29115bcac0"
     },
     {
       "test": "Get Blueprints",
@@ -55,9 +55,34 @@
       "details": "Found 1 blueprints"
     },
     {
+      "test": "AI Generate Single Blueprint",
+      "success": true,
+      "details": "Generated: Awareness - Cost Focus, Approved: False"
+    },
+    {
+      "test": "AI Generate Batch Blueprints",
+      "success": true,
+      "details": "Generated: 8/8 blueprints"
+    },
+    {
+      "test": "Import Blueprints CSV",
+      "success": true,
+      "details": "Imported: 2 blueprints"
+    },
+    {
+      "test": "Verify Blueprint Approval Status",
+      "success": true,
+      "details": "Total: 12, Unapproved: 12"
+    },
+    {
+      "test": "Bulk Approve Blueprints",
+      "success": true,
+      "details": "Approved: 2 blueprints"
+    },
+    {
       "test": "Generate Message",
       "success": true,
-      "details": "Message ID: b50da4a6-9308-4acb-9526-ea16eff0d7ee"
+      "details": "Message ID: 60455e70-769c-4d0f-beec-426951da615a"
     },
     {
       "test": "Get Messages",
