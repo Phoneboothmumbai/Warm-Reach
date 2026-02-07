@@ -73,6 +73,15 @@ export const SettingsPage = () => {
     approval_mode: "manual"
   });
 
+  // WhatsApp settings state
+  const [whatsappConfig, setWhatsappConfig] = useState(null);
+  const [whatsappForm, setWhatsappForm] = useState({
+    phone_number_id: "",
+    access_token: ""
+  });
+  const [showAccessToken, setShowAccessToken] = useState(false);
+  const [savingWhatsapp, setSavingWhatsapp] = useState(false);
+
   const isOwner = user?.role === "owner";
   const isAdmin = user?.role === "admin" || isOwner;
 
@@ -83,10 +92,11 @@ export const SettingsPage = () => {
   const fetchSettings = async () => {
     setLoading(true);
     try {
-      const [tenantRes, usersRes, logsRes] = await Promise.all([
+      const [tenantRes, usersRes, logsRes, whatsappRes] = await Promise.all([
         authFetch(`${API}/settings/tenant`),
         isAdmin ? authFetch(`${API}/settings/users`) : Promise.resolve({ ok: false }),
-        isAdmin ? authFetch(`${API}/audit-logs?limit=50`) : Promise.resolve({ ok: false })
+        isAdmin ? authFetch(`${API}/audit-logs?limit=50`) : Promise.resolve({ ok: false }),
+        isAdmin ? authFetch(`${API}/settings/whatsapp`) : Promise.resolve({ ok: false })
       ]);
 
       if (tenantRes.ok) {
@@ -100,6 +110,13 @@ export const SettingsPage = () => {
       }
       if (usersRes.ok) setUsers(await usersRes.json());
       if (logsRes.ok) setAuditLogs(await logsRes.json());
+      if (whatsappRes.ok) {
+        const waData = await whatsappRes.json();
+        setWhatsappConfig(waData);
+        if (waData.phone_number_id) {
+          setWhatsappForm(prev => ({ ...prev, phone_number_id: waData.phone_number_id }));
+        }
+      }
     } catch (error) {
       toast.error("Failed to load settings");
     } finally {
