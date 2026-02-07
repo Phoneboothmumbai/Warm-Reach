@@ -58,7 +58,7 @@ logger = logging.getLogger(__name__)
 async def generate_ai_message(contact: Dict, blueprint: Dict, previous_messages: List[str] = None) -> str:
     """Generate a unique message using OpenAI GPT-5.2 via Emergent"""
     try:
-        from emergentintegrations.llm.chat import chat, ChatConfig
+        from emergentintegrations.llm.chat import LlmChat
         
         # Build context about the contact
         contact_context = f"""
