@@ -16,6 +16,8 @@ from enum import Enum
 import csv
 import io
 import re
+import hashlib
+import random
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -29,6 +31,9 @@ db = client[os.environ['DB_NAME']]
 JWT_SECRET = os.environ.get('JWT_SECRET', 'warmreach-secret-key-change-in-production')
 JWT_ALGORITHM = 'HS256'
 JWT_EXPIRATION_HOURS = 24
+
+# Emergent LLM Key
+EMERGENT_LLM_KEY = os.environ.get('EMERGENT_LLM_KEY', 'sk-emergent-8552bB41fB80dB5501')
 
 # Create the main app
 app = FastAPI(title="Warm Outreach Engine API", version="1.0.0")
@@ -45,6 +50,163 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
+
+# ========================
+# AI SERVICE
+# ========================
+
+async def generate_ai_message(contact: Dict, blueprint: Dict, previous_messages: List[str] = None) -> str:
+    """Generate a unique message using OpenAI GPT-5.2 via Emergent"""
+    try:
+        from emergentintegrations.llm.chat import chat, ChatConfig
+        
+        # Build context about the contact
+        contact_context = f"""
+Contact Information:
+- Name: {contact.get('first_name', '')} {contact.get('last_name', '')}
+- Company: {contact.get('company_name', 'their company')}
+- Job Title: {contact.get('job_title', '')}
+- City: {contact.get('city', '')}
+- Country: {contact.get('country', '')}
+"""
+        
+        # Build blueprint context
+        blueprint_context = f"""
+Message Blueprint:
+- Channel: {blueprint.get('channel', 'email')}
+- Intent: {blueprint.get('intent', 'awareness')}
+- Angle: {blueprint.get('angle', 'cost')}
+- Tone: {blueprint.get('tone', 'calm_authority')}
+- Structure Template:
+{blueprint.get('structure', '')}
+"""
+        
+        # Channel-specific constraints
+        channel_constraints = {
+            "email": "Keep it plain text, 4-6 lines max. No emojis. No links in first touch. One idea only.",
+            "whatsapp": "Max 3 short lines. One question max. Conversational tone. End with opt-out note.",
+            "linkedin": "No links. Use numbers over adjectives. One thought per post. Add line breaks."
+        }
+        
+        constraints = channel_constraints.get(blueprint.get('channel', 'email'), channel_constraints['email'])
+        
+        # Build prompt for unique message
+        previous_context = ""
+        if previous_messages and len(previous_messages) > 0:
+            previous_context = f"""
+IMPORTANT - Avoid similarity to these previously generated messages:
+{chr(10).join(['- ' + msg[:200] + '...' if len(msg) > 200 else '- ' + msg for msg in previous_messages[:5]])}
+
+Generate a COMPLETELY DIFFERENT message with a unique opening, different phrasing, and varied structure.
+"""
+        
+        prompt = f"""You are a B2B outreach expert. Generate a personalized {blueprint.get('channel', 'email')} message.
+
+{contact_context}
+
+{blueprint_context}
+
+Channel Constraints: {constraints}
+
+{previous_context}
+
+RULES:
+1. DO NOT invent facts or make claims about the contact's company
+2. DO NOT add links unless explicitly in the template
+3. Replace placeholders with actual contact data
+4. Make the message feel human, not templated
+5. Vary the opening hook each time
+6. Keep the same intent and angle but use different words/phrases
+7. Be concise and respectful of their time
+
+Generate ONLY the message text, nothing else. No subject line, no signature block unless in template."""
+
+        config = ChatConfig(
+            api_key=EMERGENT_LLM_KEY,
+            model="gpt-5.2"
+        )
+        
+        response = await chat(
+            config=config,
+            user_message=prompt,
+            system_message="You are a professional B2B outreach writer. Generate unique, personalized messages that feel human and respect the recipient. Never repeat the same phrasing twice."
+        )
+        
+        return response.strip()
+        
+    except Exception as e:
+        logger.error(f"AI generation failed: {e}")
+        # Fallback to template replacement with variation
+        return generate_fallback_message(contact, blueprint, previous_messages)
+
+def generate_fallback_message(contact: Dict, blueprint: Dict, previous_messages: List[str] = None) -> str:
+    """Fallback message generation with variation if AI fails"""
+    structure = blueprint.get("structure", "")
+    
+    # Basic placeholder replacement
+    content = structure.replace("{{first_name}}", contact.get("first_name", ""))
+    content = content.replace("{{last_name}}", contact.get("last_name", ""))
+    content = content.replace("{{company_name}}", contact.get("company_name", "your company"))
+    content = content.replace("{{job_title}}", contact.get("job_title", ""))
+    content = content.replace("{{city}}", contact.get("city", ""))
+    content = content.replace("{{country}}", contact.get("country", ""))
+    
+    # Add variation hooks based on angle
+    angle = blueprint.get("angle", "cost")
+    angle_hooks = {
+        "cost": [
+            "Quick question about",
+            "Noticed something about",
+            "Been thinking about",
+            "Curious if you've considered",
+            "Brief thought on"
+        ],
+        "risk": [
+            "Something caught my attention",
+            "A concern came to mind",
+            "Worth flagging",
+            "Quick heads up about",
+            "Noticed a pattern"
+        ],
+        "growth": [
+            "Opportunity worth exploring",
+            "Quick growth idea",
+            "Potential unlock",
+            "Thought you'd find this interesting",
+            "Growth angle"
+        ],
+        "downtime": [
+            "Reliability question",
+            "Uptime thought",
+            "Quick operational note",
+            "Continuity consideration",
+            "System resilience"
+        ],
+        "compliance": [
+            "Compliance consideration",
+            "Regulatory thought",
+            "Quick governance note",
+            "Standards alignment",
+            "Policy consideration"
+        ]
+    }
+    
+    # Create message hash to track uniqueness
+    base_hash = hashlib.md5(content.encode()).hexdigest()[:8]
+    
+    # Add some randomization to make messages different
+    if previous_messages:
+        random.seed(len(previous_messages) + hash(contact.get("email", "")))
+        hooks = angle_hooks.get(angle, angle_hooks["cost"])
+        hook = random.choice(hooks)
+        
+        # Modify opening if it exists
+        lines = content.split('\n')
+        if lines and len(lines) > 0:
+            lines[0] = f"{hook} - {lines[0]}"
+            content = '\n'.join(lines)
+    
+    return content
 
 # ========================
 # ENUMS
@@ -218,7 +380,7 @@ class BlueprintBase(BaseModel):
     intent: Intent
     angle: Angle
     tone: Tone
-    structure: str  # The template structure with placeholders
+    structure: str
     cooldown_days: int = 7
 
 class BlueprintCreate(BlueprintBase):
@@ -257,6 +419,7 @@ class Message(BaseModel):
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     approved_by: Optional[str] = None
     approved_at: Optional[datetime] = None
+    content_hash: Optional[str] = None  # For deduplication
 
 class MessageApprove(BaseModel):
     message_ids: List[str]
@@ -310,6 +473,17 @@ class BulkStatusUpdate(BaseModel):
 class GenerateMessageRequest(BaseModel):
     contact_id: str
     blueprint_id: str
+
+class BatchGenerateRequest(BaseModel):
+    channel: Optional[Channel] = None
+    max_messages: int = 10
+    blueprint_id: Optional[str] = None  # If not provided, auto-select blueprints
+
+class BatchGenerateResponse(BaseModel):
+    generated_count: int
+    skipped_count: int
+    errors: List[str]
+    messages: List[Dict[str, Any]]
 
 # ========================
 # HELPER FUNCTIONS
@@ -387,6 +561,33 @@ async def check_rate_limit(tenant_id: str, channel: Channel) -> tuple[bool, int]
     remaining = max(0, limit - sent_count)
     return remaining > 0, remaining
 
+async def check_cooldown(contact: Dict, blueprint: Dict) -> tuple[bool, str]:
+    """Check if contact is in cooldown for this blueprint's channel"""
+    channel = blueprint.get("channel")
+    last_contacted = contact.get("last_contacted", {}).get(channel)
+    
+    if last_contacted:
+        if isinstance(last_contacted, str):
+            last_contacted = datetime.fromisoformat(last_contacted.replace('Z', '+00:00'))
+        cooldown_end = last_contacted + timedelta(days=blueprint.get("cooldown_days", 7))
+        if datetime.now(timezone.utc) < cooldown_end:
+            return False, f"Contact in cooldown until {cooldown_end.isoformat()}"
+    
+    return True, "OK"
+
+async def get_previous_messages_for_contact(tenant_id: str, contact_id: str, channel: str, limit: int = 5) -> List[str]:
+    """Get previous messages sent to this contact on this channel"""
+    messages = await db.messages.find(
+        {
+            "tenant_id": tenant_id,
+            "contact_id": contact_id,
+            "channel": channel
+        },
+        {"_id": 0, "content": 1}
+    ).sort("created_at", -1).limit(limit).to_list(limit)
+    
+    return [m.get("content", "") for m in messages]
+
 async def log_audit(tenant_id: str, user_id: str, action: str, resource_type: str, resource_id: str, details: Dict = None):
     """Log an audit entry"""
     log = AuditLog(
@@ -407,12 +608,10 @@ async def log_audit(tenant_id: str, user_id: str, action: str, resource_type: st
 
 @api_router.post("/auth/register", response_model=TokenResponse)
 async def register(user_data: UserCreate):
-    # Check if email exists
     existing = await db.users.find_one({"email": user_data.email})
     if existing:
         raise HTTPException(status_code=400, detail="Email already registered")
     
-    # Create tenant if not provided
     if not user_data.tenant_id:
         tenant = Tenant(name=f"{user_data.first_name}'s Organization")
         tenant_doc = tenant.model_dump()
@@ -424,7 +623,6 @@ async def register(user_data: UserCreate):
         tenant_id = user_data.tenant_id
         role = user_data.role
     
-    # Create user
     user = User(
         email=user_data.email,
         first_name=user_data.first_name,
@@ -440,18 +638,13 @@ async def register(user_data: UserCreate):
         user_doc['last_login'] = user_doc['last_login'].isoformat()
     
     await db.users.insert_one(user_doc)
-    
     token = create_token(user.id, tenant_id, role)
     
     return TokenResponse(
         access_token=token,
         user=UserResponse(
-            id=user.id,
-            email=user.email,
-            first_name=user.first_name,
-            last_name=user.last_name,
-            role=user.role,
-            tenant_id=user.tenant_id,
+            id=user.id, email=user.email, first_name=user.first_name,
+            last_name=user.last_name, role=user.role, tenant_id=user.tenant_id,
             is_active=user.is_active
         )
     )
@@ -465,7 +658,6 @@ async def login(credentials: UserLogin):
     if not verify_password(credentials.password, user.get('password_hash', '')):
         raise HTTPException(status_code=401, detail="Invalid credentials")
     
-    # Update last login
     await db.users.update_one(
         {"id": user["id"]},
         {"$set": {"last_login": datetime.now(timezone.utc).isoformat()}}
@@ -476,12 +668,8 @@ async def login(credentials: UserLogin):
     return TokenResponse(
         access_token=token,
         user=UserResponse(
-            id=user["id"],
-            email=user["email"],
-            first_name=user["first_name"],
-            last_name=user["last_name"],
-            role=user["role"],
-            tenant_id=user["tenant_id"],
+            id=user["id"], email=user["email"], first_name=user["first_name"],
+            last_name=user["last_name"], role=user["role"], tenant_id=user["tenant_id"],
             is_active=user.get("is_active", True)
         )
     )
@@ -489,12 +677,9 @@ async def login(credentials: UserLogin):
 @api_router.get("/auth/me", response_model=UserResponse)
 async def get_me(current_user: Dict = Depends(get_current_user)):
     return UserResponse(
-        id=current_user["id"],
-        email=current_user["email"],
-        first_name=current_user["first_name"],
-        last_name=current_user["last_name"],
-        role=current_user["role"],
-        tenant_id=current_user["tenant_id"],
+        id=current_user["id"], email=current_user["email"],
+        first_name=current_user["first_name"], last_name=current_user["last_name"],
+        role=current_user["role"], tenant_id=current_user["tenant_id"],
         is_active=current_user.get("is_active", True)
     )
 
@@ -506,6 +691,7 @@ async def get_me(current_user: Dict = Depends(get_current_user)):
 async def get_contacts(
     status: Optional[ContactStatus] = None,
     search: Optional[str] = None,
+    eligible_only: bool = False,
     skip: int = 0,
     limit: int = 50,
     current_user: Dict = Depends(get_current_user)
@@ -514,6 +700,13 @@ async def get_contacts(
     
     if status:
         query["status"] = status
+    
+    if eligible_only:
+        # Only contacts that can be contacted
+        query["status"] = {"$nin": [ContactStatus.BLACKLISTED, ContactStatus.NOT_INTERESTED]}
+        query["context_flags.do_not_contact"] = {"$ne": True}
+        query["context_flags.negative_sentiment_detected"] = {"$ne": True}
+        query["context_flags.has_open_support_ticket"] = {"$ne": True}
     
     if search:
         query["$or"] = [
@@ -531,7 +724,6 @@ async def create_contact(
     contact_data: ContactCreate,
     current_user: Dict = Depends(get_current_user)
 ):
-    # Check for duplicate
     existing = await db.contacts.find_one({
         "tenant_id": current_user["tenant_id"],
         "$or": [
@@ -591,11 +783,7 @@ async def update_contact(
     if "context_flags" in update_dict:
         update_dict["context_flags"] = update_dict["context_flags"].model_dump() if hasattr(update_dict["context_flags"], 'model_dump') else update_dict["context_flags"]
     
-    await db.contacts.update_one(
-        {"id": contact_id},
-        {"$set": update_dict}
-    )
-    
+    await db.contacts.update_one({"id": contact_id}, {"$set": update_dict})
     await log_audit(current_user["tenant_id"], current_user["id"], "update", "contact", contact_id, update_dict)
     
     updated = await db.contacts.find_one({"id": contact_id}, {"_id": 0})
@@ -647,13 +835,11 @@ async def import_contacts(
     
     for row in reader:
         try:
-            # Map common field names
             email = row.get('email') or row.get('Email') or row.get('EMAIL')
             if not email:
                 errors.append(f"Row missing email: {row}")
                 continue
             
-            # Check for duplicate
             existing = await db.contacts.find_one({
                 "tenant_id": current_user["tenant_id"],
                 "email": email
@@ -697,7 +883,7 @@ async def import_contacts(
     return {
         "imported": imported,
         "duplicates": duplicates,
-        "errors": errors[:10]  # Return first 10 errors
+        "errors": errors[:10]
     }
 
 # ========================
@@ -770,11 +956,7 @@ async def update_blueprint(
     update_dict = blueprint_data.model_dump()
     update_dict["updated_at"] = datetime.now(timezone.utc).isoformat()
     
-    await db.blueprints.update_one(
-        {"id": blueprint_id},
-        {"$set": update_dict}
-    )
-    
+    await db.blueprints.update_one({"id": blueprint_id}, {"$set": update_dict})
     await log_audit(current_user["tenant_id"], current_user["id"], "update", "blueprint", blueprint_id)
     
     updated = await db.blueprints.find_one({"id": blueprint_id}, {"_id": 0})
@@ -843,7 +1025,7 @@ async def generate_message(
     request: GenerateMessageRequest,
     current_user: Dict = Depends(get_current_user)
 ):
-    # Get contact
+    """Generate a single message for a specific contact and blueprint"""
     contact = await db.contacts.find_one(
         {"id": request.contact_id, "tenant_id": current_user["tenant_id"]},
         {"_id": 0}
@@ -851,12 +1033,10 @@ async def generate_message(
     if not contact:
         raise HTTPException(status_code=404, detail="Contact not found")
     
-    # Check context flags
     can_reach, reason = can_contact(contact)
     if not can_reach:
         raise HTTPException(status_code=400, detail=f"Cannot contact: {reason}")
     
-    # Get blueprint
     blueprint = await db.blueprints.find_one(
         {"id": request.blueprint_id, "tenant_id": current_user["tenant_id"]},
         {"_id": 0}
@@ -865,35 +1045,35 @@ async def generate_message(
         raise HTTPException(status_code=404, detail="Blueprint not found")
     
     # Check cooldown
-    channel = blueprint["channel"]
-    last_contacted = contact.get("last_contacted", {}).get(channel)
-    if last_contacted:
-        if isinstance(last_contacted, str):
-            last_contacted = datetime.fromisoformat(last_contacted.replace('Z', '+00:00'))
-        cooldown_end = last_contacted + timedelta(days=blueprint.get("cooldown_days", 7))
-        if datetime.now(timezone.utc) < cooldown_end:
-            raise HTTPException(status_code=400, detail=f"Contact is in cooldown period until {cooldown_end.isoformat()}")
+    can_send, cooldown_reason = await check_cooldown(contact, blueprint)
+    if not can_send:
+        raise HTTPException(status_code=400, detail=cooldown_reason)
     
     # Check rate limit
-    can_send, remaining = await check_rate_limit(current_user["tenant_id"], channel)
-    if not can_send:
+    channel = blueprint["channel"]
+    can_send_rate, remaining = await check_rate_limit(current_user["tenant_id"], channel)
+    if not can_send_rate:
         raise HTTPException(status_code=429, detail=f"Rate limit exceeded for {channel}")
     
-    # Generate message using AI (simplified for MVP - using template replacement)
-    structure = blueprint["structure"]
-    content = structure.replace("{{first_name}}", contact["first_name"])
-    content = content.replace("{{last_name}}", contact["last_name"])
-    content = content.replace("{{company_name}}", contact.get("company_name", "your company"))
-    content = content.replace("{{job_title}}", contact.get("job_title", ""))
+    # Get previous messages for deduplication
+    previous_messages = await get_previous_messages_for_contact(
+        current_user["tenant_id"], request.contact_id, channel
+    )
     
-    # Create message
+    # Generate unique message using AI
+    content = await generate_ai_message(contact, blueprint, previous_messages)
+    
+    # Create content hash for deduplication
+    content_hash = hashlib.md5(content.encode()).hexdigest()
+    
     message = Message(
         tenant_id=current_user["tenant_id"],
         contact_id=request.contact_id,
         blueprint_id=request.blueprint_id,
         channel=channel,
         content=content,
-        status=MessageStatus.PENDING_APPROVAL
+        status=MessageStatus.PENDING_APPROVAL,
+        content_hash=content_hash
     )
     
     doc = message.model_dump()
@@ -903,13 +1083,7 @@ async def generate_message(
             doc[field] = doc[field].isoformat()
     
     await db.messages.insert_one(doc)
-    
-    # Increment blueprint usage
-    await db.blueprints.update_one(
-        {"id": request.blueprint_id},
-        {"$inc": {"usage_count": 1}}
-    )
-    
+    await db.blueprints.update_one({"id": request.blueprint_id}, {"$inc": {"usage_count": 1}})
     await log_audit(current_user["tenant_id"], current_user["id"], "generate", "message", message.id)
     
     return {
@@ -918,6 +1092,154 @@ async def generate_message(
         "blueprint": blueprint,
         "rate_limit_remaining": remaining
     }
+
+@api_router.post("/messages/generate-batch", response_model=BatchGenerateResponse)
+async def generate_batch_messages(
+    request: BatchGenerateRequest,
+    current_user: Dict = Depends(get_current_user)
+):
+    """
+    Automatically generate multiple unique messages at once.
+    System auto-selects eligible contacts and appropriate blueprints.
+    """
+    tenant_id = current_user["tenant_id"]
+    generated = []
+    skipped = 0
+    errors = []
+    
+    # Get all blueprints (filter by channel if specified)
+    blueprint_query = {"tenant_id": tenant_id}
+    if request.channel:
+        blueprint_query["channel"] = request.channel
+    if request.blueprint_id:
+        blueprint_query["id"] = request.blueprint_id
+    
+    blueprints = await db.blueprints.find(blueprint_query, {"_id": 0}).to_list(100)
+    
+    if not blueprints:
+        raise HTTPException(status_code=400, detail="No blueprints found. Create blueprints first.")
+    
+    # Get eligible contacts
+    contact_query = {
+        "tenant_id": tenant_id,
+        "status": {"$nin": [ContactStatus.BLACKLISTED, ContactStatus.NOT_INTERESTED, ContactStatus.INTERESTED]},
+        "context_flags.do_not_contact": {"$ne": True},
+        "context_flags.negative_sentiment_detected": {"$ne": True},
+        "context_flags.has_open_support_ticket": {"$ne": True}
+    }
+    
+    contacts = await db.contacts.find(contact_query, {"_id": 0}).to_list(500)
+    
+    if not contacts:
+        raise HTTPException(status_code=400, detail="No eligible contacts found.")
+    
+    # Track which contacts we've already processed
+    processed_contacts = set()
+    
+    # Shuffle contacts for variety
+    random.shuffle(contacts)
+    
+    for contact in contacts:
+        if len(generated) >= request.max_messages:
+            break
+        
+        if contact["id"] in processed_contacts:
+            continue
+        
+        # Find a suitable blueprint for this contact
+        for blueprint in blueprints:
+            channel = blueprint["channel"]
+            
+            # Check rate limit for this channel
+            can_send_rate, remaining = await check_rate_limit(tenant_id, channel)
+            if not can_send_rate:
+                continue
+            
+            # Check cooldown
+            can_send_cool, _ = await check_cooldown(contact, blueprint)
+            if not can_send_cool:
+                skipped += 1
+                continue
+            
+            # Check if we already have a pending message for this contact+channel
+            existing = await db.messages.find_one({
+                "tenant_id": tenant_id,
+                "contact_id": contact["id"],
+                "channel": channel,
+                "status": {"$in": [MessageStatus.PENDING_APPROVAL, MessageStatus.APPROVED, MessageStatus.SCHEDULED]}
+            })
+            if existing:
+                skipped += 1
+                continue
+            
+            try:
+                # Get previous messages for this contact
+                previous_messages = await get_previous_messages_for_contact(
+                    tenant_id, contact["id"], channel
+                )
+                
+                # Generate unique message using AI
+                content = await generate_ai_message(contact, blueprint, previous_messages)
+                
+                # Create content hash
+                content_hash = hashlib.md5(content.encode()).hexdigest()
+                
+                # Check for duplicate content
+                duplicate = await db.messages.find_one({
+                    "tenant_id": tenant_id,
+                    "content_hash": content_hash
+                })
+                if duplicate:
+                    # Regenerate with different seed
+                    content = await generate_ai_message(contact, blueprint, previous_messages + [content])
+                    content_hash = hashlib.md5(content.encode()).hexdigest()
+                
+                message = Message(
+                    tenant_id=tenant_id,
+                    contact_id=contact["id"],
+                    blueprint_id=blueprint["id"],
+                    channel=channel,
+                    content=content,
+                    status=MessageStatus.PENDING_APPROVAL,
+                    content_hash=content_hash
+                )
+                
+                doc = message.model_dump()
+                doc['created_at'] = doc['created_at'].isoformat()
+                for field in ['scheduled_at', 'sent_at', 'delivered_at', 'approved_at']:
+                    if doc.get(field):
+                        doc[field] = doc[field].isoformat()
+                
+                await db.messages.insert_one(doc)
+                await db.blueprints.update_one({"id": blueprint["id"]}, {"$inc": {"usage_count": 1}})
+                
+                generated.append({
+                    "message_id": message.id,
+                    "contact_name": f"{contact['first_name']} {contact['last_name']}",
+                    "contact_email": contact['email'],
+                    "channel": channel,
+                    "blueprint_name": blueprint['name'],
+                    "content_preview": content[:150] + "..." if len(content) > 150 else content
+                })
+                
+                processed_contacts.add(contact["id"])
+                break  # Move to next contact after successful generation
+                
+            except Exception as e:
+                errors.append(f"Error generating for {contact['email']}: {str(e)}")
+                logger.error(f"Batch generation error: {e}")
+    
+    await log_audit(tenant_id, current_user["id"], "batch_generate", "message", "bulk", {
+        "generated": len(generated),
+        "skipped": skipped
+    })
+    
+    return BatchGenerateResponse(
+        generated_count=len(generated),
+        skipped_count=skipped,
+        errors=errors[:10],
+        messages=generated
+    )
 
 @api_router.post("/messages/approve")
 async def approve_messages(
@@ -992,14 +1314,36 @@ async def update_message_content(
     if message["status"] not in [MessageStatus.DRAFT, MessageStatus.PENDING_APPROVAL]:
         raise HTTPException(status_code=400, detail="Cannot edit message after approval")
     
+    content_hash = hashlib.md5(content.encode()).hexdigest()
+    
     await db.messages.update_one(
         {"id": message_id},
-        {"$set": {"content": content}}
+        {"$set": {"content": content, "content_hash": content_hash}}
     )
     
     await log_audit(current_user["tenant_id"], current_user["id"], "edit", "message", message_id)
     
     return {"message": "Message content updated"}
+
+@api_router.delete("/messages/{message_id}")
+async def delete_message(
+    message_id: str,
+    current_user: Dict = Depends(get_current_user)
+):
+    message = await db.messages.find_one(
+        {"id": message_id, "tenant_id": current_user["tenant_id"]},
+        {"_id": 0}
+    )
+    if not message:
+        raise HTTPException(status_code=404, detail="Message not found")
+    
+    if message["status"] in [MessageStatus.SENT, MessageStatus.DELIVERED]:
+        raise HTTPException(status_code=400, detail="Cannot delete sent messages")
+    
+    await db.messages.delete_one({"id": message_id})
+    await log_audit(current_user["tenant_id"], current_user["id"], "delete", "message", message_id)
+    
+    return {"message": "Message deleted"}
 
 # ========================
 # INBOX/REPLIES ROUTES
@@ -1036,12 +1380,8 @@ async def update_reply_sentiment(
     if not reply:
         raise HTTPException(status_code=404, detail="Reply not found")
     
-    await db.replies.update_one(
-        {"id": reply_id},
-        {"$set": {"sentiment": sentiment}}
-    )
+    await db.replies.update_one({"id": reply_id}, {"$set": {"sentiment": sentiment}})
     
-    # If negative sentiment, blacklist the contact
     if sentiment == Sentiment.NEGATIVE:
         await db.contacts.update_one(
             {"id": reply["contact_id"]},
@@ -1091,44 +1431,34 @@ async def mark_reply_read(
 async def get_dashboard_metrics(current_user: Dict = Depends(get_current_user)):
     tenant_id = current_user["tenant_id"]
     
-    # Total contacts
     total_contacts = await db.contacts.count_documents({"tenant_id": tenant_id})
-    
-    # Total messages sent
     total_messages_sent = await db.messages.count_documents({
         "tenant_id": tenant_id,
         "status": {"$in": ["sent", "delivered"]}
     })
-    
-    # Total replies
     total_replies = await db.replies.count_documents({"tenant_id": tenant_id})
     
-    # Positive sentiment rate
     positive_replies = await db.replies.count_documents({
         "tenant_id": tenant_id,
         "sentiment": Sentiment.POSITIVE
     })
     positive_sentiment_rate = (positive_replies / total_replies * 100) if total_replies > 0 else 0
     
-    # Blacklist rate
     blacklisted = await db.contacts.count_documents({
         "tenant_id": tenant_id,
         "status": ContactStatus.BLACKLISTED
     })
     blacklist_rate = (blacklisted / total_contacts * 100) if total_contacts > 0 else 0
     
-    # Meetings booked (contacts marked as interested)
     meetings_booked = await db.contacts.count_documents({
         "tenant_id": tenant_id,
         "status": ContactStatus.INTERESTED
     })
     
-    # Rate limits remaining
     _, email_remaining = await check_rate_limit(tenant_id, Channel.EMAIL)
     _, whatsapp_remaining = await check_rate_limit(tenant_id, Channel.WHATSAPP)
     _, linkedin_remaining = await check_rate_limit(tenant_id, Channel.LINKEDIN)
     
-    # Recent activity
     recent_messages = await db.messages.find(
         {"tenant_id": tenant_id},
         {"_id": 0}
@@ -1202,7 +1532,6 @@ async def update_tenant_settings(
     if company_name:
         update_dict["company_name"] = company_name
     if approval_mode:
-        # Autopilot requires explicit unlock (not implemented in MVP)
         if approval_mode == ApprovalMode.AUTOPILOT:
             raise HTTPException(status_code=400, detail="Autopilot mode is locked and requires performance threshold")
         update_dict["approval_mode"] = approval_mode
@@ -1227,12 +1556,8 @@ async def get_tenant_users(current_user: Dict = Depends(get_current_user)):
     ).to_list(100)
     
     return [UserResponse(
-        id=u["id"],
-        email=u["email"],
-        first_name=u["first_name"],
-        last_name=u["last_name"],
-        role=u["role"],
-        tenant_id=u["tenant_id"],
+        id=u["id"], email=u["email"], first_name=u["first_name"],
+        last_name=u["last_name"], role=u["role"], tenant_id=u["tenant_id"],
         is_active=u.get("is_active", True)
     ) for u in users]
 
@@ -1254,7 +1579,7 @@ async def get_audit_logs(
     return logs
 
 # ========================
-# ROOT ROUTE
+# ROOT & HEALTH
 # ========================
 
 @api_router.get("/")
@@ -1269,7 +1594,7 @@ async def health_check():
     except Exception as e:
         return {"status": "unhealthy", "error": str(e)}
 
-# Include the router in the main app
+# Include the router
 app.include_router(api_router)
 
 app.add_middleware(
