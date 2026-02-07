@@ -1,0 +1,184 @@
+<analysis>**original_problem_statement:**
+The user wants to build a context-aware, controlled outreach SaaS called Warm Outreach Engine.
+
+**SYSTEMATIC BUILD INSTRUCTIONS**
+
+**Project:** Warm Outreach Engine (SaaS)
+
+**CORE OBJECTIVE:**
+Build a SaaS that helps B2B service companies proactively create demand via Email, WhatsApp, and LinkedIn, without spamming. The system should act like a disciplined junior sales assistant.
+
+**PHASE-WISE BUILD PLAN:**
+
+*   **PHASE 0: FOUNDATION & TENANCY:** Secure, multi-tenant architecture with user roles (Owner, Admin, Sales User, Read-only) and email/password authentication.
+*   **PHASE 1: CONTACT & DATA CORE:** A contact database with fields like name, email, company, status, and critical context flags (, , etc.) to block outreach. Features include CSV import, deduplication, and manual editing.
+*   **PHASE 2: TEMPLATE & BLUEPRINT ENGINE:** Create reusable message blueprints (structure + intent) with metadata like channel, intent, angle, tone, and cooldown period.
+*   **PHASE 3: AI MESSAGE GENERATION:** Use AI (OpenAI GPT-5.2) to generate fresh, human-feeling content based on blueprints, with strict constraints (e.g., no inventing facts) and channel-specific rules. The system must have memory to avoid repetition.
+*   **PHASE 4: SCHEDULER & RATE LIMITER:** Enforce global channel limits (e.g., 10 emails/day per tenant) and human-like sending schedules (business hours, randomized times).
+*   **PHASE 5: APPROVAL & MODES:** Default to a manual approval mode where a user must approve all generated content.
+*   **PHASE 6: CHANNEL INTEGRATIONS:** Use official APIs for Email (AWS SES), WhatsApp (Business Cloud API), and LinkedIn (Company Page automation only).
+*   **PHASE 7: REPLY & SENTIMENT HANDLING:** Capture replies and classify sentiment to trigger rules (e.g., negative sentiment -> blacklist).
+*   **PHASE 8: ANALYTICS THAT MATTER:** Track meaningful metrics like reply rate, positive sentiment rate, and meetings booked.
+*   **PHASE 9: SAAS HARDENING:** Add tenant dashboards, abuse detection, and audit logs.
+
+**MVP SCOPE:** Phases 0-5.
+
+**USER CHOICES:**
+*   **AI:** OpenAI GPT-5.2 with Emergent LLM Key.
+*   **Email:** AWS SES.
+*   **WhatsApp:** WhatsApp Business Cloud API.
+*   **Design:** System preference (Dark/Light), Royal Blue & Olive Green palette.
+
+**User's preferred language**: English
+
+**what currently exists?**
+A functional multi-tenant SaaS MVP built with a FastAPI backend, React frontend, and MongoDB database.
+
+**Key implemented features:**
+-   User authentication (register, login) and multi-tenant data isolation.
+-   CRUD functionality for Contacts and Blueprints.
+-   AI-powered batch message generation: The system automatically selects eligible contacts and blueprints to generate multiple unique message variations at once, which await user approval.
+-   AI-powered blueprint generation: Users can ask the AI to generate new blueprint ideas.
+-   Bulk blueprint import via CSV.
+-   A comprehensive frontend with pages for Dashboard, Contacts, Blueprints, Messages, and Settings, styled with Shadcn/UI and supporting both light and dark modes.
+
+**Last working item**:
+- Last item agent was working: The agent implemented features for blueprint management, allowing users to **bulk-import blueprints via CSV** and use **AI to generate new blueprints**. This involved adding several new backend endpoints for import, AI generation, and bulk approval, and a complete overhaul of the frontend blueprints page to support the new functionality.
+- Status: USER VERIFICATION PENDING
+- Agent Testing Done: Y
+- Which testing method agent to use? both
+- User Testing Done: N
+
+**All Pending/In progress Issue list**:
+There are no pending bugs or issues. The agent has completed the last set of feature requests. The next set of tasks is from the user's latest message.
+
+**In progress Task List**:
+There are no tasks currently in progress.
+
+**Upcoming and Future Tasks**
+**Upcoming Tasks:**
+- **P0: Implement User Request (from last message):**
+  - **Task 1: Sample CSV Download:** Create a backend endpoint () and a corresponding button on the frontend to allow users to download a sample CSV template for blueprint uploads, pre-filled with example data.
+  - **Task 2: WhatsApp Business Cloud API Integration:** Implement the integration for sending messages. This includes adding a section in the Settings page for users to securely enter and save their WhatsApp API credentials.
+  - **Task 3: WhatsApp Web QR Login:** Add an alternative option for users to connect via WhatsApp Web by scanning a QR code. This should be presented with a clear warning about its unofficial nature and potential risks.
+
+**Future Tasks:**
+- **Phase 4 (Partial):** Fully implement the scheduler and rate limiter for automated sending of approved messages.
+- **Phase 6: Full Channel Integrations:**
+    - Integrate AWS SES for sending emails (currently mocked).
+    - Integrate LinkedIn API for company page post scheduling.
+- **Phase 7: Reply & Sentiment Handling:**
+    - Implement email and WhatsApp reply capture.
+    - Integrate a sentiment analysis model to classify replies and automate actions (e.g., blacklisting on negative sentiment).
+- **Phase 8: Analytics:** Build out the analytics dashboard with meaningful charts for reply rates, sentiment, and other key metrics.
+- **Phase 9: SaaS Hardening:** Implement tenant usage dashboards, abuse detection, and audit logs.
+
+**Completed work in this session**
+- **Foundation (Phases 0-1):** Implemented multi-tenancy, user roles, authentication, and the core contact database.
+- **Blueprint & Message Engine (Phases 2, 3, 5):**
+  - Created the blueprint and message models.
+  - Implemented AI-powered batch message generation to create multiple unique messages for approval.
+  - Implemented AI-powered blueprint generation (single and batch).
+  - Implemented bulk blueprint import via CSV.
+  - Built the UI for approving/managing generated messages and blueprints.
+- **Frontend Development:** Built a responsive UI for all core features, including Dashboard, Login, Contacts, Blueprints, and Messages pages, supporting both dark and light modes.
+
+**Earlier issues found/mentioned but not fixed**
+None. All identified issues during development (e.g., MongoDB  serialization,  type errors in templates) were resolved.
+
+**Known issue recurrence from previous fork**
+- Issue recurrence in previous fork: None
+- Recurrence count: 0
+- Status: NA
+
+**Code Architecture**
+
+
+**Key Technical Concepts**
+- **Backend:** FastAPI, Pydantic, MongoDB (via ).
+- **Frontend:** React, , Shadcn/UI components.
+- **Architecture:** Multi-tenant SaaS, REST API.
+- **Integrations:** Emergent LLM Key for OpenAI GPT-5.2.
+
+**key DB schema**
+- : Stores tenant information. 
+- : Stores user data, linked to a tenant. 
+- : Stores contact information for a tenant. 
+- : Stores message templates for a tenant. 
+- : Stores generated messages. 
+- : Records significant user actions. 
+
+**changes in tech stack**
+None.
+
+**All files of reference**
+- : The core backend application containing all API logic, database models, and business rules. It has been repeatedly updated to add new features.
+- : The frontend page for generating and managing outreach messages. Was rewritten to support batch generation.
+- : The frontend page for managing blueprints. Was rewritten to support AI generation and CSV import.
+- : The main React component that sets up routing for all pages.
+- : Defines global styles, including CSS variables for the color palette and dark/light modes.
+- : The project requirements document, updated after major features were completed.
+
+**Areas that need refactoring**:
+The  file is now over 1200 lines long and contains all models, routes, and service logic. It should be refactored for better maintainability. A suggested structure would be:
+
+
+**key api endpoints**
+- 
+- 
+- 
+- 
+- 
+- 
+- 
+- 
+- 
+- 
+- 
+- 
+- 
+
+**Critical Info for New Agent**
+- **Backend Refactoring:** The  file is monolithic. While functional, advise the user about refactoring it into smaller, more manageable modules (routers, models, services) for long-term health.
+- **Frontend Testing:** The  consistently fails on frontend tests that require a logged-in state because each test runs in a fresh browser session. Do not rely on it for post-login UI tests. You MUST manually verify frontend functionality with the  tool after logging in. Backend tests from the agent are reliable.
+- **MongoDB :** Be vigilant about the BSON  not being JSON serializable. This issue has occurred twice and was fixed by ensuring API responses are built from Pydantic models or dictionaries where  has been explicitly handled or removed.
+
+**documents and test reports created in this job**
+- 
+- 
+- 
+- 
+
+**Last 10 User Messages and any pending HUMAN messages**
+1. **User (Latest):** Requested three new features: a downloadable sample CSV for blueprints, WhatsApp Business API integration with a manual credential entry form, and a WhatsApp Web QR login option.
+2. **Agent:** Finished implementing AI blueprint generation and bulk import, providing a summary.
+3. **User:** Requested the ability to bulk upload blueprints and have the AI generate new blueprints for approval.
+4. **Agent:** Finished implementing batch message generation and addressed user feedback on the manual workflow.
+5. **User:** Provided critical feedback that the message generation was too manual (one-by-one), repetitive, and required constant selection. They wanted an automatic, batch-oriented workflow.
+6. **Agent:** Finished the initial MVP (Phases 0-5) build, summarizing the work and suggesting next steps.
+7. **User:** Provided their choices for integrations (OpenAI, SES), MVP scope (Phases 0-5), and design preferences.
+8. **Agent:** Asked clarifying questions about AI/channel integrations, MVP scope, and design.
+
+**Project Health Check:**
+- **Working:** Core backend and frontend functionality is stable. User authentication, data management (contacts, blueprints), and the core AI generation loops are operational.
+- **Mocked:** AWS SES and WhatsApp integrations are planned but not yet implemented; their services are mocked in the code.
+- **Broken:** Nothing is currently broken.
+
+**3rd Party Integrations**
+- **OpenAI GPT-5.2:** Used for message and blueprint generation. Access is managed via the **Emergent LLM Key**.
+- **AWS SES (Planned):** For email sending. Integration code is not yet implemented.
+- **WhatsApp Business Cloud API (Planned):** For WhatsApp messaging. Integration code is not yet implemented.
+
+**Testing status**
+- Testing agent used after significant changes: YES
+- Troubleshoot agent used after agent stuck in loop: NO
+- Test files created:
+  -  (created by testing agent)
+- Known regressions: None.
+
+**Credentials to test flow:**
+The application uses a self-registration flow. To test, you can register a new user via the UI or the API endpoint:
+
+
+**What agent forgot to execute**
+None. The agent successfully addressed all user requests and feedback from the current session.</analysis>
