@@ -1420,6 +1420,55 @@ async def import_blueprints(
         blueprints=blueprints
     )
 
+@api_router.get("/blueprints/import/template")
+async def get_blueprint_import_template(current_user: Dict = Depends(get_current_user)):
+    """Download a sample CSV template for blueprint import with example data."""
+    from fastapi.responses import StreamingResponse
+    
+    # Create sample CSV content with example blueprints
+    csv_content = """name,channel,intent,angle,tone,structure,description,cooldown_days
+Cold Intro - Cost Savings,email,awareness,cost,calm_authority,"Hi {{first_name}},
+
+I noticed {{company_name}} has been scaling rapidly. At this stage, many companies face rising operational costs that could be optimized.
+
+Would a brief chat about potential quick wins be worthwhile?
+
+Best regards",First touch email focused on cost optimization,7
+WhatsApp Quick Touch,whatsapp,conversation,growth,direct,"Hi {{first_name}}, noticed {{company_name}}'s growth trajectory. Are you exploring ways to accelerate even further?
+
+Reply STOP to opt out.",Quick WhatsApp conversation starter,14
+Risk Awareness Email,email,awareness,risk,observational,"Hi {{first_name}},
+
+Growing companies like {{company_name}} often encounter new security and operational risks as they scale.
+
+I'd be happy to share some insights we've seen work well. Worth a quick conversation?
+
+Best regards",Risk-focused awareness email,7
+LinkedIn Thought Leadership,linkedin,awareness,compliance,calm_authority,"Interesting observation from working with growing companies:
+
+The biggest compliance gap isn't what you think.
+
+It's the assumption that yesterday's processes work for today's scale.
+
+Companies that address this at {{company_name}}'s stage avoid costly retrofits later.",LinkedIn post for compliance awareness,21
+Follow-up - Previous Interest,email,follow_up,cost,direct,"Hi {{first_name}},
+
+Following up on my previous note about potential cost optimizations at {{company_name}}.
+
+Has this been something you've had a chance to consider?
+
+Happy to share a quick case study if helpful.
+
+Best regards",Follow-up for previous contacts,14
+"""
+    
+    # Return as downloadable CSV file
+    return StreamingResponse(
+        iter([csv_content]),
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=blueprint_template.csv"}
+    )
+
 @api_router.post("/blueprints/approve-bulk")
 async def approve_bulk_blueprints(
     blueprint_ids: List[str],
