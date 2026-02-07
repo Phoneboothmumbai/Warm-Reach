@@ -82,7 +82,7 @@ class WarmReachAPITester:
     def test_user_registration(self):
         """Test user registration"""
         test_data = {
-            "email": f"test_{datetime.now().strftime('%H%M%S')}@warmreach.test",
+            "email": f"test_{datetime.now().strftime('%H%M%S')}@example.com",
             "password": "TestPass123!",
             "first_name": "Test",
             "last_name": "User"
