@@ -1,7 +1,7 @@
 {
-  "timestamp": "2026-02-07T09:45:22.401194",
-  "total_tests": 18,
-  "passed_tests": 18,
+  "timestamp": "2026-02-07T10:06:19.474462",
+  "total_tests": 19,
+  "passed_tests": 19,
   "success_rate": 100.0,
   "results": [
     {
@@ -12,7 +12,7 @@
     {
       "test": "User Registration",
       "success": true,
-      "details": "User ID: ff0a21bb-736d-4257-b0b0-6bfba2d241ff"
+      "details": "User ID: 74a25a85-0f1f-4172-81bc-5cad16f2be26"
     },
     {
       "test": "User Login",
@@ -32,7 +32,7 @@
     {
       "test": "Create Contact",
       "success": true,
-      "details": "Contact ID: 1dcbeb75-82a9-44e7-9b73-8f1000fc2938"
+      "details": "Contact ID: 682d6a80-0e28-4626-974c-f706984ffac9"
     },
     {
       "test": "Get Contacts",
@@ -47,7 +47,7 @@
     {
       "test": "Create Blueprint",
       "success": true,
-      "details": "Blueprint ID: bcba4687-b4a8-4365-8cd4-c027f46db99e"
+      "details": "Blueprint ID: abcc2b01-d84c-4c27-9c46-df8f0b79a447"
     },
     {
       "test": "Get Blueprints",
@@ -57,12 +57,17 @@
     {
       "test": "Generate Message",
       "success": true,
-      "details": "Message ID: 89a2eda9-e329-4449-ba9e-81e16e443db8"
+      "details": "Message ID: b50da4a6-9308-4acb-9526-ea16eff0d7ee"
     },
     {
       "test": "Get Messages",
       "success": true,
       "details": "Found 1 messages"
+    },
+    {
+      "test": "Batch Generate Messages",
+      "success": true,
+      "details": "Generated: 0, Skipped: 1"
     },
     {
       "test": "Approve Message",
