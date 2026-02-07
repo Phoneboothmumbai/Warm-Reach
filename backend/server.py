@@ -1228,6 +1228,9 @@ async def generate_ai_blueprint_endpoint(
     await db.blueprints.insert_one(doc)
     await log_audit(current_user["tenant_id"], current_user["id"], "ai_generate", "blueprint", blueprint.id)
     
+    # Remove MongoDB _id from response
+    doc.pop('_id', None)
+    
     return AIBlueprintResponse(
         blueprint=doc,
         requires_approval=True
