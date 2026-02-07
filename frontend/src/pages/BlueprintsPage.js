@@ -908,6 +908,16 @@ No links in first post.`;
                   Note: Imported blueprints require approval before use
                 </p>
               </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleDownloadTemplate}
+                className="mt-2"
+                data-testid="download-template-btn"
+              >
+                <Download className="w-4 h-4 mr-2" />
+                Download Sample CSV Template
+              </Button>
             </div>
           </div>
         </DialogContent>
