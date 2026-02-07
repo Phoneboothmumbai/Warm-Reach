@@ -127,7 +127,10 @@ Generate ONLY the message text, nothing else. No subject line, no signature bloc
             system_message="You are a professional B2B outreach writer. Generate unique, personalized messages that feel human and respect the recipient. Never repeat the same phrasing twice."
         )
         
-        response = await llm_chat.chat(prompt)
+        # Use GPT-5.2 model
+        llm_chat = llm_chat.with_model("gpt-5.2")
+        
+        response = llm_chat.send_message(prompt)
         
         return response.strip()
         
