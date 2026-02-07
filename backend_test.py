@@ -557,6 +557,14 @@ Another Import,whatsapp,conversation,growth,direct,"Hi {{first_name}}, {{company
         self.test_create_blueprint()
         self.test_get_blueprints()
         
+        # NEW: Blueprint Management Features
+        print("\n🔧 Testing New Blueprint Management Features...")
+        self.test_ai_generate_single_blueprint()
+        self.test_ai_generate_batch_blueprints()
+        self.test_import_blueprints_csv()
+        self.test_verify_blueprint_approval_status()
+        self.test_bulk_approve_blueprints()
+        
         # Messages workflow
         self.test_generate_message()
         self.test_get_messages()
