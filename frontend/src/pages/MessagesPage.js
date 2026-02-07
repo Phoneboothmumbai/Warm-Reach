@@ -539,14 +539,14 @@ export const MessagesPage = () => {
                 <div className="space-y-2">
                   <Label>Channel (Optional)</Label>
                   <Select
-                    value={batchForm.channel}
-                    onValueChange={(value) => setBatchForm({ ...batchForm, channel: value })}
+                    value={batchForm.channel || "all"}
+                    onValueChange={(value) => setBatchForm({ ...batchForm, channel: value === "all" ? "" : value })}
                   >
                     <SelectTrigger data-testid="batch-channel-select">
                       <SelectValue placeholder="All channels" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">All Channels</SelectItem>
+                      <SelectItem value="all">All Channels</SelectItem>
                       <SelectItem value="email">Email Only</SelectItem>
                       <SelectItem value="whatsapp">WhatsApp Only</SelectItem>
                       <SelectItem value="linkedin">LinkedIn Only</SelectItem>
@@ -557,14 +557,14 @@ export const MessagesPage = () => {
                 <div className="space-y-2">
                   <Label>Blueprint (Optional)</Label>
                   <Select
-                    value={batchForm.blueprint_id}
-                    onValueChange={(value) => setBatchForm({ ...batchForm, blueprint_id: value })}
+                    value={batchForm.blueprint_id || "auto"}
+                    onValueChange={(value) => setBatchForm({ ...batchForm, blueprint_id: value === "auto" ? "" : value })}
                   >
                     <SelectTrigger data-testid="batch-blueprint-select">
                       <SelectValue placeholder="Auto-select blueprints" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">Auto-select blueprints</SelectItem>
+                      <SelectItem value="auto">Auto-select blueprints</SelectItem>
                       {blueprints.map((bp) => (
                         <SelectItem key={bp.id} value={bp.id}>
                           {bp.name} ({bp.channel})
