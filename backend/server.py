@@ -666,6 +666,19 @@ class BulkBlueprintImportResponse(BaseModel):
     errors: List[str]
     blueprints: List[Dict[str, Any]]
 
+class WhatsAppSettings(BaseModel):
+    phone_number_id: str
+    access_token: str
+
+class WhatsAppSettingsResponse(BaseModel):
+    phone_number_id: Optional[str] = None
+    is_configured: bool = False
+    verified_at: Optional[str] = None
+
+class WhatsAppSendRequest(BaseModel):
+    to_phone: str
+    message: str
+
 class BatchAIBlueprintRequest(BaseModel):
     channels: List[Channel] = [Channel.EMAIL]
     intents: List[Intent] = [Intent.AWARENESS]
