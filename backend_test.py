@@ -105,7 +105,7 @@ class WarmReachAPITester:
         """Test user login with existing credentials"""
         # Create a new user for login test
         register_data = {
-            "email": f"login_test_{datetime.now().strftime('%H%M%S')}@warmreach.test",
+            "email": f"login_test_{datetime.now().strftime('%H%M%S')}@example.com",
             "password": "LoginTest123!",
             "first_name": "Login",
             "last_name": "Test"
