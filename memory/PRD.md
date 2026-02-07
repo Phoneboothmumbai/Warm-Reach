@@ -62,10 +62,12 @@ Build a context-aware, controlled outreach SaaS that helps B2B service companies
 - [x] Royal Blue (#4169E1) + Olive Green (#6B8E23) palette
 
 ## P0 Features Remaining
-- [ ] Actual AI message generation (OpenAI GPT-5.2 integration)
 - [ ] AWS SES email sending
-- [ ] WhatsApp Business Cloud API integration
 - [ ] Message scheduling with cron jobs
+
+## P0 Features Completed
+- [x] AI message generation (OpenAI GPT-5.2 via Emergent LLM Key)
+- [x] WhatsApp Business Cloud API integration (settings & sending)
 
 ## P1 Features (Phase 6-7)
 - [ ] LinkedIn post scheduling
