@@ -279,6 +279,28 @@ class WarmReachAPITester:
         
         return success
 
+    def test_batch_generate_messages(self):
+        """Test batch message generation"""
+        if not self.created_contact_id or not self.created_blueprint_id:
+            self.log_result("Batch Generate Messages", False, "Missing contact or blueprint ID")
+            return False
+        
+        batch_data = {
+            "max_messages": 5,
+            "channel": "email",
+            "blueprint_id": self.created_blueprint_id
+        }
+        
+        success, data = self.make_request('POST', 'messages/generate-batch', batch_data)
+        
+        if success and 'generated_count' in data:
+            self.log_result("Batch Generate Messages", True, 
+                          f"Generated: {data['generated_count']}, Skipped: {data.get('skipped_count', 0)}")
+        else:
+            self.log_result("Batch Generate Messages", False, str(data))
+        
+        return success
+
     def test_approve_message(self):
         """Test approving a message"""
         if not self.created_message_id:
