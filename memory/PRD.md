@@ -85,3 +85,48 @@ Build a context-aware, controlled outreach SaaS that helps B2B service companies
 3. Add WhatsApp Business Cloud API
 4. Build message scheduler with background tasks
 5. Add charts to analytics dashboard
+
+---
+
+## Update: Batch Message Generation (Feb 2026)
+
+### What Was Requested
+User reported issues with the original message generation:
+1. Same message generated over and over (no variation)
+2. Manual selection of contact and blueprint each time
+3. Only one message at a time
+
+### What Was Implemented
+
+#### Backend Changes (/app/backend/server.py)
+- Added `/api/messages/generate-batch` endpoint
+- Integrated OpenAI GPT-5.2 via Emergent LLM key for unique message generation
+- AI generates personalized, unique messages using:
+  - Contact information (name, company, job title)
+  - Blueprint structure and metadata (intent, angle, tone)
+  - Previous messages sent to avoid repetition
+- Content hash deduplication to prevent identical messages
+- Auto-selection of eligible contacts (not blacklisted, not in cooldown)
+- Auto-selection of blueprints based on channel preference
+- Rate limit enforcement during batch generation
+
+#### Frontend Changes (/app/frontend/src/pages/MessagesPage.js)
+- "Generate Batch" button in header
+- Batch generation dialog with:
+  - Number of messages to generate (1-50)
+  - Optional channel filter (Email/WhatsApp/LinkedIn)
+  - Optional blueprint filter
+  - Clear explanation of how it works
+- Bulk approve functionality (Select All + Approve All)
+- Checkbox selection for individual message approval
+- Delete button for messages before approval
+
+### Test Results
+- Backend: 100% (20/20 tests passed)
+- AI Integration: Working with real OpenAI GPT-5.2
+- Batch Generation: Working correctly
+
+### Still MOCKED
+- Email sending (AWS SES)
+- WhatsApp sending (Cloud API)
+- Messages stored in DB but not actually sent
