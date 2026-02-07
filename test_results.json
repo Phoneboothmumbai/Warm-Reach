@@ -1,0 +1,18 @@
+{
+  "timestamp": "2026-02-07T09:45:03.996601",
+  "total_tests": 2,
+  "passed_tests": 1,
+  "success_rate": 50.0,
+  "results": [
+    {
+      "test": "Health Check",
+      "success": true,
+      "details": "Status: healthy"
+    },
+    {
+      "test": "User Registration",
+      "success": false,
+      "details": "{'detail': [{'type': 'value_error', 'loc': ['body', 'email'], 'msg': 'value is not a valid email address: The part after the @-sign is a special-use or reserved name that cannot be used with email.', 'input': 'test_094503@warmreach.test', 'ctx': {'reason': 'The part after the @-sign is a special-use or reserved name that cannot be used with email.'}}], 'status_code': 422}"
+    }
+  ]
+}
