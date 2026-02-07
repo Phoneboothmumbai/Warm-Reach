@@ -341,6 +341,28 @@ export const BlueprintsPage = () => {
     }
   };
 
+  const handleDownloadTemplate = async () => {
+    try {
+      const response = await authFetch(`${API}/blueprints/import/template`);
+      if (response.ok) {
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'blueprint_template.csv';
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+        toast.success("Template downloaded!");
+      } else {
+        toast.error("Failed to download template");
+      }
+    } catch (error) {
+      toast.error("Failed to download template");
+    }
+  };
+
   const resetForm = () => {
     setFormData({
       name: "",
