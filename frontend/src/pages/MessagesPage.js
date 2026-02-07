@@ -13,13 +13,18 @@ import {
   Edit,
   RefreshCw,
   Calendar,
-  Filter
+  Filter,
+  Zap,
+  Trash2,
+  CheckSquare,
+  Square
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 import {
   Dialog,
   DialogContent,
@@ -36,6 +41,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -65,18 +71,20 @@ export const MessagesPage = () => {
   const [statusFilter, setStatusFilter] = useState("all");
   const [channelFilter, setChannelFilter] = useState("all");
   
-  const [generateDialogOpen, setGenerateDialogOpen] = useState(false);
+  const [batchDialogOpen, setBatchDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [selectedMessage, setSelectedMessage] = useState(null);
   const [generating, setGenerating] = useState(false);
-  const [generatedResult, setGeneratedResult] = useState(null);
+  const [batchResult, setBatchResult] = useState(null);
   
-  const [generateForm, setGenerateForm] = useState({
-    contact_id: "",
+  const [batchForm, setBatchForm] = useState({
+    channel: "",
+    max_messages: 10,
     blueprint_id: ""
   });
 
   const [editedContent, setEditedContent] = useState("");
+  const [selectedMessages, setSelectedMessages] = useState([]);
 
   useEffect(() => {
     fetchData();
@@ -95,7 +103,7 @@ export const MessagesPage = () => {
 
       const [messagesRes, contactsRes, blueprintsRes] = await Promise.all([
         authFetch(url),
-        authFetch(`${API}/contacts?limit=100`),
+        authFetch(`${API}/contacts?limit=200`),
         authFetch(`${API}/blueprints`)
       ]);
 
@@ -109,30 +117,44 @@ export const MessagesPage = () => {
     }
   };
 
-  const handleGenerateMessage = async () => {
-    if (!generateForm.contact_id || !generateForm.blueprint_id) {
-      toast.error("Please select a contact and blueprint");
-      return;
-    }
-
+  const handleBatchGenerate = async () => {
     setGenerating(true);
+    setBatchResult(null);
+    
     try {
-      const response = await authFetch(`${API}/messages/generate`, {
+      const payload = {
+        max_messages: batchForm.max_messages
+      };
+      
+      if (batchForm.channel) {
+        payload.channel = batchForm.channel;
+      }
+      if (batchForm.blueprint_id) {
+        payload.blueprint_id = batchForm.blueprint_id;
+      }
+
+      const response = await authFetch(`${API}/messages/generate-batch`, {
         method: "POST",
-        body: JSON.stringify(generateForm)
+        body: JSON.stringify(payload)
       });
 
       if (response.ok) {
         const result = await response.json();
-        setGeneratedResult(result);
-        toast.success("Message generated successfully");
+        setBatchResult(result);
+        
+        if (result.generated_count > 0) {
+          toast.success(`Generated ${result.generated_count} unique messages!`);
+        } else {
+          toast.warning("No messages could be generated. Check contacts and blueprints.");
+        }
+        
         fetchData();
       } else {
         const error = await response.json();
-        toast.error(error.detail || "Failed to generate message");
+        toast.error(error.detail || "Failed to generate messages");
       }
     } catch (error) {
-      toast.error("Failed to generate message");
+      toast.error("Failed to generate messages");
     } finally {
       setGenerating(false);
     }
@@ -148,6 +170,7 @@ export const MessagesPage = () => {
       if (response.ok) {
         const result = await response.json();
         toast.success(`${result.approved_count} message(s) approved`);
+        setSelectedMessages([]);
         fetchData();
       } else {
         const error = await response.json();
@@ -155,6 +178,24 @@ export const MessagesPage = () => {
       }
     } catch (error) {
       toast.error("Failed to approve messages");
+    }
+  };
+
+  const handleDeleteMessage = async (messageId) => {
+    try {
+      const response = await authFetch(`${API}/messages/${messageId}`, {
+        method: "DELETE"
+      });
+
+      if (response.ok) {
+        toast.success("Message deleted");
+        fetchData();
+      } else {
+        const error = await response.json();
+        toast.error(error.detail || "Failed to delete message");
+      }
+    } catch (error) {
+      toast.error("Failed to delete message");
     }
   };
 
@@ -192,12 +233,33 @@ export const MessagesPage = () => {
     return contact ? `${contact.first_name} ${contact.last_name}` : "Unknown";
   };
 
+  const getContactEmail = (contactId) => {
+    const contact = contacts.find(c => c.id === contactId);
+    return contact?.email || "";
+  };
+
   const getBlueprintName = (blueprintId) => {
     const blueprint = blueprints.find(b => b.id === blueprintId);
     return blueprint?.name || "Unknown";
   };
 
   const pendingMessages = messages.filter(m => m.status === "pending_approval");
+  
+  const toggleMessageSelection = (messageId) => {
+    setSelectedMessages(prev =>
+      prev.includes(messageId)
+        ? prev.filter(id => id !== messageId)
+        : [...prev, messageId]
+    );
+  };
+
+  const toggleAllPending = () => {
+    if (selectedMessages.length === pendingMessages.length) {
+      setSelectedMessages([]);
+    } else {
+      setSelectedMessages(pendingMessages.map(m => m.id));
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -206,12 +268,19 @@ export const MessagesPage = () => {
         <div>
           <h1 className="heading-2" data-testid="messages-heading">Messages</h1>
           <p className="text-muted-foreground">
-            Generate, review, and approve outreach messages
+            Auto-generate unique messages in batch, then review and approve
           </p>
         </div>
-        <Button onClick={() => setGenerateDialogOpen(true)} data-testid="generate-message-btn">
-          <MessageSquare className="w-4 h-4 mr-2" />
-          Generate Message
+        <Button 
+          onClick={() => {
+            setBatchResult(null);
+            setBatchDialogOpen(true);
+          }} 
+          data-testid="batch-generate-btn"
+          className="bg-primary hover:bg-primary/90"
+        >
+          <Zap className="w-4 h-4 mr-2" />
+          Generate Batch
         </Button>
       </div>
 
@@ -219,23 +288,45 @@ export const MessagesPage = () => {
       {pendingMessages.length > 0 && (
         <Card className="card-surface border-yellow-500/30 bg-yellow-500/5" data-testid="pending-approval-banner">
           <CardContent className="p-4">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between flex-wrap gap-4">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-full bg-yellow-500/20 flex items-center justify-center">
                   <Clock className="w-5 h-5 text-yellow-600 dark:text-yellow-400" />
                 </div>
                 <div>
                   <p className="font-semibold">{pendingMessages.length} message(s) pending approval</p>
-                  <p className="text-sm text-muted-foreground">Review and approve to schedule sending</p>
+                  <p className="text-sm text-muted-foreground">
+                    {selectedMessages.length > 0 
+                      ? `${selectedMessages.length} selected` 
+                      : "Select messages or approve all"}
+                  </p>
                 </div>
               </div>
-              <Button
-                onClick={() => handleApproveMessages(pendingMessages.map(m => m.id))}
-                data-testid="approve-all-btn"
-              >
-                <CheckCircle className="w-4 h-4 mr-2" />
-                Approve All
-              </Button>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={toggleAllPending}
+                  data-testid="select-all-pending-btn"
+                >
+                  {selectedMessages.length === pendingMessages.length ? (
+                    <><CheckSquare className="w-4 h-4 mr-2" /> Deselect All</>
+                  ) : (
+                    <><Square className="w-4 h-4 mr-2" /> Select All</>
+                  )}
+                </Button>
+                <Button
+                  onClick={() => handleApproveMessages(
+                    selectedMessages.length > 0 ? selectedMessages : pendingMessages.map(m => m.id)
+                  )}
+                  data-testid="approve-selected-btn"
+                >
+                  <CheckCircle className="w-4 h-4 mr-2" />
+                  {selectedMessages.length > 0 
+                    ? `Approve (${selectedMessages.length})`
+                    : "Approve All"}
+                </Button>
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -283,13 +374,14 @@ export const MessagesPage = () => {
           ) : messages.length === 0 ? (
             <div className="p-8 text-center">
               <MessageSquare className="w-12 h-12 mx-auto mb-4 text-muted-foreground/50" />
-              <p className="text-muted-foreground">No messages yet</p>
-              <Button 
-                variant="link" 
-                onClick={() => setGenerateDialogOpen(true)}
-                className="mt-2"
-              >
-                Generate your first message
+              <p className="text-lg font-medium mb-2">No messages yet</p>
+              <p className="text-muted-foreground mb-4">
+                Click "Generate Batch" to automatically create unique messages<br />
+                for your eligible contacts
+              </p>
+              <Button onClick={() => setBatchDialogOpen(true)}>
+                <Zap className="w-4 h-4 mr-2" />
+                Generate Batch
               </Button>
             </div>
           ) : (
@@ -298,14 +390,28 @@ export const MessagesPage = () => {
                 const ChannelIcon = channelIcons[message.channel] || Mail;
                 const statusCfg = statusConfig[message.status] || statusConfig.draft;
                 const canEdit = ["draft", "pending_approval"].includes(message.status);
+                const isPending = message.status === "pending_approval";
+                const isSelected = selectedMessages.includes(message.id);
 
                 return (
                   <div
                     key={message.id}
-                    className="p-4 hover:bg-muted/30 transition-colors"
+                    className={cn(
+                      "p-4 hover:bg-muted/30 transition-colors",
+                      isSelected && "bg-primary/5"
+                    )}
                     data-testid={`message-row-${message.id}`}
                   >
                     <div className="flex items-start gap-4">
+                      {isPending && (
+                        <Checkbox
+                          checked={isSelected}
+                          onCheckedChange={() => toggleMessageSelection(message.id)}
+                          className="mt-3"
+                          data-testid={`message-checkbox-${message.id}`}
+                        />
+                      )}
+                      
                       <div className={cn(
                         "w-10 h-10 rounded-lg flex items-center justify-center shrink-0",
                         message.channel === "email" && "bg-primary/10 text-primary",
@@ -318,19 +424,20 @@ export const MessagesPage = () => {
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1 flex-wrap">
                           <span className="font-medium">{getContactName(message.contact_id)}</span>
-                          <span className="text-muted-foreground">via</span>
-                          <span className="text-sm text-muted-foreground capitalize">{message.channel}</span>
+                          <span className="text-sm text-muted-foreground">
+                            {getContactEmail(message.contact_id)}
+                          </span>
                           <Badge className={cn("text-xs border ml-auto", statusCfg.color)}>
                             {statusCfg.label}
                           </Badge>
                         </div>
 
                         <p className="text-sm text-muted-foreground mb-2">
-                          Blueprint: {getBlueprintName(message.blueprint_id)}
+                          Blueprint: {getBlueprintName(message.blueprint_id)} • {message.channel}
                         </p>
 
                         <div className="p-3 bg-muted/30 rounded-lg">
-                          <pre className="text-sm whitespace-pre-wrap font-mono line-clamp-4">
+                          <pre className="text-sm whitespace-pre-wrap font-sans line-clamp-4">
                             {message.content}
                           </pre>
                         </div>
@@ -343,27 +450,32 @@ export const MessagesPage = () => {
                               Scheduled: {new Date(message.scheduled_at).toLocaleString()}
                             </span>
                           )}
-                          {message.sent_at && (
-                            <span className="flex items-center gap-1 text-secondary">
-                              <Send className="w-3.5 h-3.5" />
-                              Sent: {new Date(message.sent_at).toLocaleString()}
-                            </span>
-                          )}
                         </div>
                       </div>
 
                       <div className="flex gap-2 shrink-0">
                         {canEdit && (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => openEditDialog(message)}
-                            data-testid={`edit-message-${message.id}`}
-                          >
-                            <Edit className="w-4 h-4" />
-                          </Button>
+                          <>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => openEditDialog(message)}
+                              data-testid={`edit-message-${message.id}`}
+                            >
+                              <Edit className="w-4 h-4" />
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleDeleteMessage(message.id)}
+                              className="text-destructive hover:bg-destructive/10"
+                              data-testid={`delete-message-${message.id}`}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </>
                         )}
-                        {message.status === "pending_approval" && (
+                        {isPending && !isSelected && (
                           <Button
                             size="sm"
                             onClick={() => handleApproveMessages([message.id])}
@@ -383,53 +495,79 @@ export const MessagesPage = () => {
         </ScrollArea>
       </Card>
 
-      {/* Generate Message Dialog */}
-      <Dialog open={generateDialogOpen} onOpenChange={setGenerateDialogOpen}>
+      {/* Batch Generate Dialog */}
+      <Dialog open={batchDialogOpen} onOpenChange={setBatchDialogOpen}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>Generate New Message</DialogTitle>
+            <DialogTitle className="flex items-center gap-2">
+              <Zap className="w-5 h-5 text-primary" />
+              Generate Message Batch
+            </DialogTitle>
             <DialogDescription>
-              Select a contact and blueprint to generate a personalized message
+              Automatically generate unique AI-powered messages for your eligible contacts
             </DialogDescription>
           </DialogHeader>
 
-          {!generatedResult ? (
+          {!batchResult ? (
             <>
               <div className="space-y-4 py-4">
+                <div className="p-4 bg-muted/30 rounded-lg space-y-2">
+                  <p className="text-sm font-medium">How it works:</p>
+                  <ul className="text-sm text-muted-foreground space-y-1">
+                    <li>• System selects eligible contacts (not blacklisted, not in cooldown)</li>
+                    <li>• AI generates unique message for each contact using blueprints</li>
+                    <li>• Each message is different - no duplicates</li>
+                    <li>• You just review and approve with one click</li>
+                  </ul>
+                </div>
+
                 <div className="space-y-2">
-                  <Label>Select Contact *</Label>
+                  <Label>Number of Messages</Label>
+                  <Input
+                    type="number"
+                    min={1}
+                    max={50}
+                    value={batchForm.max_messages}
+                    onChange={(e) => setBatchForm({ ...batchForm, max_messages: parseInt(e.target.value) || 10 })}
+                    data-testid="batch-max-messages"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Max messages to generate (respects rate limits)
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Channel (Optional)</Label>
                   <Select
-                    value={generateForm.contact_id}
-                    onValueChange={(value) => setGenerateForm({ ...generateForm, contact_id: value })}
+                    value={batchForm.channel}
+                    onValueChange={(value) => setBatchForm({ ...batchForm, channel: value })}
                   >
-                    <SelectTrigger data-testid="generate-contact-select">
-                      <SelectValue placeholder="Choose a contact" />
+                    <SelectTrigger data-testid="batch-channel-select">
+                      <SelectValue placeholder="All channels" />
                     </SelectTrigger>
                     <SelectContent>
-                      {contacts
-                        .filter(c => c.status !== "blacklisted")
-                        .map((contact) => (
-                          <SelectItem key={contact.id} value={contact.id}>
-                            {contact.first_name} {contact.last_name} - {contact.email}
-                          </SelectItem>
-                        ))}
+                      <SelectItem value="">All Channels</SelectItem>
+                      <SelectItem value="email">Email Only</SelectItem>
+                      <SelectItem value="whatsapp">WhatsApp Only</SelectItem>
+                      <SelectItem value="linkedin">LinkedIn Only</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
 
                 <div className="space-y-2">
-                  <Label>Select Blueprint *</Label>
+                  <Label>Blueprint (Optional)</Label>
                   <Select
-                    value={generateForm.blueprint_id}
-                    onValueChange={(value) => setGenerateForm({ ...generateForm, blueprint_id: value })}
+                    value={batchForm.blueprint_id}
+                    onValueChange={(value) => setBatchForm({ ...batchForm, blueprint_id: value })}
                   >
-                    <SelectTrigger data-testid="generate-blueprint-select">
-                      <SelectValue placeholder="Choose a blueprint" />
+                    <SelectTrigger data-testid="batch-blueprint-select">
+                      <SelectValue placeholder="Auto-select blueprints" />
                     </SelectTrigger>
                     <SelectContent>
-                      {blueprints.map((blueprint) => (
-                        <SelectItem key={blueprint.id} value={blueprint.id}>
-                          {blueprint.name} ({blueprint.channel})
+                      <SelectItem value="">Auto-select blueprints</SelectItem>
+                      {blueprints.map((bp) => (
+                        <SelectItem key={bp.id} value={bp.id}>
+                          {bp.name} ({bp.channel})
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -438,10 +576,13 @@ export const MessagesPage = () => {
               </div>
 
               <DialogFooter>
+                <Button variant="outline" onClick={() => setBatchDialogOpen(false)}>
+                  Cancel
+                </Button>
                 <Button
-                  onClick={handleGenerateMessage}
-                  disabled={generating}
-                  data-testid="generate-submit-btn"
+                  onClick={handleBatchGenerate}
+                  disabled={generating || blueprints.length === 0}
+                  data-testid="batch-generate-submit"
                 >
                   {generating ? (
                     <>
@@ -450,8 +591,8 @@ export const MessagesPage = () => {
                     </>
                   ) : (
                     <>
-                      <MessageSquare className="w-4 h-4 mr-2" />
-                      Generate Message
+                      <Zap className="w-4 h-4 mr-2" />
+                      Generate Messages
                     </>
                   )}
                 </Button>
@@ -460,49 +601,74 @@ export const MessagesPage = () => {
           ) : (
             <>
               <div className="space-y-4 py-4">
-                <div className="p-4 bg-secondary/10 rounded-lg">
+                <div className={cn(
+                  "p-4 rounded-lg",
+                  batchResult.generated_count > 0 ? "bg-secondary/10" : "bg-yellow-500/10"
+                )}>
                   <div className="flex items-center gap-2 mb-2">
-                    <CheckCircle className="w-5 h-5 text-secondary" />
-                    <span className="font-semibold">Message Generated!</span>
+                    {batchResult.generated_count > 0 ? (
+                      <CheckCircle className="w-5 h-5 text-secondary" />
+                    ) : (
+                      <AlertTriangle className="w-5 h-5 text-yellow-600" />
+                    )}
+                    <span className="font-semibold">
+                      {batchResult.generated_count > 0 
+                        ? `${batchResult.generated_count} Messages Generated!`
+                        : "No Messages Generated"}
+                    </span>
                   </div>
                   <p className="text-sm text-muted-foreground">
-                    To: {generatedResult.contact?.first_name} {generatedResult.contact?.last_name}
-                  </p>
-                  <p className="text-sm text-muted-foreground">
-                    Blueprint: {generatedResult.blueprint?.name}
+                    {batchResult.skipped_count > 0 && `${batchResult.skipped_count} contacts skipped (cooldown/existing)`}
                   </p>
                 </div>
 
-                <div className="space-y-2">
-                  <Label>Generated Content</Label>
-                  <div className="p-4 bg-muted/50 rounded-lg">
-                    <pre className="text-sm whitespace-pre-wrap font-mono">
-                      {generatedResult.message?.content}
-                    </pre>
+                {batchResult.messages && batchResult.messages.length > 0 && (
+                  <div className="space-y-2">
+                    <Label>Generated Messages Preview</Label>
+                    <ScrollArea className="h-64 border rounded-lg">
+                      <div className="divide-y divide-border">
+                        {batchResult.messages.map((msg, i) => (
+                          <div key={i} className="p-3">
+                            <div className="flex items-center gap-2 mb-1">
+                              <Badge variant="outline" className="text-xs capitalize">
+                                {msg.channel}
+                              </Badge>
+                              <span className="font-medium text-sm">{msg.contact_name}</span>
+                            </div>
+                            <p className="text-xs text-muted-foreground mb-2">{msg.contact_email}</p>
+                            <p className="text-sm line-clamp-2">{msg.content_preview}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </ScrollArea>
                   </div>
-                </div>
+                )}
 
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <AlertTriangle className="w-4 h-4" />
-                  Rate limit remaining: {generatedResult.rate_limit_remaining} messages
-                </div>
+                {batchResult.errors && batchResult.errors.length > 0 && (
+                  <div className="p-3 bg-destructive/10 rounded-lg">
+                    <p className="text-sm font-medium text-destructive mb-2">Errors:</p>
+                    <ul className="text-xs text-destructive space-y-1">
+                      {batchResult.errors.slice(0, 5).map((err, i) => (
+                        <li key={i}>{err}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
               </div>
 
               <DialogFooter className="gap-2">
                 <Button
                   variant="outline"
                   onClick={() => {
-                    setGeneratedResult(null);
-                    setGenerateForm({ contact_id: "", blueprint_id: "" });
+                    setBatchResult(null);
                   }}
                 >
-                  Generate Another
+                  Generate More
                 </Button>
                 <Button
                   onClick={() => {
-                    setGenerateDialogOpen(false);
-                    setGeneratedResult(null);
-                    setGenerateForm({ contact_id: "", blueprint_id: "" });
+                    setBatchDialogOpen(false);
+                    setBatchResult(null);
                   }}
                 >
                   Done
@@ -532,7 +698,7 @@ export const MessagesPage = () => {
                 value={editedContent}
                 onChange={(e) => setEditedContent(e.target.value)}
                 rows={10}
-                className="font-mono text-sm"
+                className="font-sans text-sm"
                 data-testid="edit-message-content"
               />
             </div>
