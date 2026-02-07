@@ -167,3 +167,53 @@ User reported issues with the original message generation:
 ### Test Results
 - Backend: 100% (24/24 tests passed)
 - All new features verified working
+
+---
+
+## Update: Sample CSV Template & WhatsApp Integration (Dec 2025)
+
+### Features Added
+
+#### 1. Sample CSV Template Download
+- New endpoint: `GET /api/blueprints/import/template`
+- Returns downloadable CSV with 5 pre-filled sample blueprints
+- Covers email, whatsapp, and linkedin channels
+- Includes proper placeholders ({{first_name}}, {{company_name}}, etc.)
+- Download button added to Blueprints page Import dialog
+
+#### 2. WhatsApp Business Cloud API Integration
+- New Settings > Integrations tab in frontend
+- WhatsApp configuration form with:
+  - Phone Number ID input
+  - Access Token input (masked with show/hide toggle)
+  - Verify & Save button
+  - Link to Meta documentation
+- Backend endpoints:
+  - `GET /api/settings/whatsapp` - Check configuration status
+  - `POST /api/settings/whatsapp` - Save and validate credentials
+  - `DELETE /api/settings/whatsapp` - Remove configuration
+  - `POST /api/whatsapp/send` - Send WhatsApp message
+- Credential validation via Meta Graph API before saving
+- Credentials stored per-tenant (multi-tenant safe)
+
+#### 3. WhatsApp Message Sending
+- Endpoint: `POST /api/whatsapp/send`
+- Uses Meta's official Cloud API (v19.0)
+- Rate limit enforcement (10 messages/day)
+- Requires user's own WhatsApp Business API credentials
+
+### API Endpoints Added
+- `GET /api/blueprints/import/template` - Download sample CSV
+- `GET /api/settings/whatsapp` - Get WhatsApp config status
+- `POST /api/settings/whatsapp` - Save WhatsApp credentials
+- `DELETE /api/settings/whatsapp` - Remove WhatsApp config
+- `POST /api/whatsapp/send` - Send WhatsApp message
+
+### Test Results
+- Backend: 100% (15/15 tests passed)
+- Frontend: 100% (all UI components verified)
+
+### Integration Notes
+- WhatsApp requires real Meta Business API credentials to send messages
+- Users obtain credentials from Meta Developer Dashboard
+- AWS SES and LinkedIn integrations still planned for future
