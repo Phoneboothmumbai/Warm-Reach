@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useAuth, API } from "@/App";
 import {
   FileText,
@@ -13,13 +13,20 @@ import {
   Copy,
   MoreHorizontal,
   Zap,
-  AlertTriangle
+  AlertTriangle,
+  Upload,
+  Sparkles,
+  Loader2,
+  CheckSquare,
+  Square,
+  X
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -44,6 +51,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -95,6 +103,14 @@ export const BlueprintsPage = () => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editBlueprint, setEditBlueprint] = useState(null);
   const [channelFilter, setChannelFilter] = useState("all");
+  const [selectedBlueprints, setSelectedBlueprints] = useState([]);
+  
+  // New dialogs
+  const [importDialogOpen, setImportDialogOpen] = useState(false);
+  const [aiGenerateDialogOpen, setAiGenerateDialogOpen] = useState(false);
+  const [generating, setGenerating] = useState(false);
+  const [aiResult, setAiResult] = useState(null);
+  const fileInputRef = useRef(null);
 
   const [formData, setFormData] = useState({
     name: "",
@@ -105,6 +121,20 @@ export const BlueprintsPage = () => {
     tone: "calm_authority",
     structure: "",
     cooldown_days: 7
+  });
+
+  const [aiForm, setAiForm] = useState({
+    channel: "email",
+    intent: "awareness",
+    angle: "cost",
+    tone: "calm_authority",
+    industry: "",
+    target_role: "",
+    additional_context: "",
+    batch_mode: false,
+    batch_channels: ["email"],
+    batch_intents: ["awareness"],
+    batch_angles: ["cost", "growth", "risk"]
   });
 
   const canManageBlueprints = user?.role === "owner" || user?.role === "admin";
@@ -195,11 +225,118 @@ export const BlueprintsPage = () => {
         method: "POST"
       });
       if (response.ok) {
-        toast.success("Blueprint approved for auto-send");
+        toast.success("Blueprint approved for use");
         fetchBlueprints();
       }
     } catch (error) {
       toast.error("Failed to approve blueprint");
+    }
+  };
+
+  const handleBulkApprove = async () => {
+    if (selectedBlueprints.length === 0) return;
+    try {
+      const response = await authFetch(`${API}/blueprints/approve-bulk`, {
+        method: "POST",
+        body: JSON.stringify(selectedBlueprints)
+      });
+      if (response.ok) {
+        const result = await response.json();
+        toast.success(`${result.approved_count} blueprint(s) approved`);
+        setSelectedBlueprints([]);
+        fetchBlueprints();
+      }
+    } catch (error) {
+      toast.error("Failed to approve blueprints");
+    }
+  };
+
+  const handleAIGenerate = async () => {
+    setGenerating(true);
+    setAiResult(null);
+    
+    try {
+      let response;
+      
+      if (aiForm.batch_mode) {
+        // Batch generation
+        response = await authFetch(`${API}/blueprints/generate-batch-ai`, {
+          method: "POST",
+          body: JSON.stringify({
+            channels: aiForm.batch_channels,
+            intents: aiForm.batch_intents,
+            angles: aiForm.batch_angles,
+            tone: aiForm.tone,
+            industry: aiForm.industry || null,
+            target_role: aiForm.target_role || null
+          })
+        });
+      } else {
+        // Single generation
+        response = await authFetch(`${API}/blueprints/generate-ai`, {
+          method: "POST",
+          body: JSON.stringify({
+            channel: aiForm.channel,
+            intent: aiForm.intent,
+            angle: aiForm.angle,
+            tone: aiForm.tone,
+            industry: aiForm.industry || null,
+            target_role: aiForm.target_role || null,
+            additional_context: aiForm.additional_context || null
+          })
+        });
+      }
+
+      if (response.ok) {
+        const result = await response.json();
+        setAiResult(result);
+        
+        if (aiForm.batch_mode) {
+          toast.success(`Generated ${result.generated_count} blueprint(s)!`);
+        } else {
+          toast.success("Blueprint generated! Review and approve to use.");
+        }
+        
+        fetchBlueprints();
+      } else {
+        const error = await response.json();
+        toast.error(error.detail || "Failed to generate blueprint");
+      }
+    } catch (error) {
+      toast.error("Failed to generate blueprint");
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  const handleImport = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.append("file", file);
+
+    try {
+      const response = await authFetch(`${API}/blueprints/import`, {
+        method: "POST",
+        body: formData
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        toast.success(`Imported ${result.imported} blueprints. They need approval before use.`);
+        setImportDialogOpen(false);
+        fetchBlueprints();
+      } else {
+        const error = await response.json();
+        toast.error(error.detail || "Import failed");
+      }
+    } catch (error) {
+      toast.error("Import failed");
+    }
+    
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
     }
   };
 
@@ -230,6 +367,14 @@ export const BlueprintsPage = () => {
     setEditBlueprint(blueprint);
   };
 
+  const toggleBlueprintSelection = (id) => {
+    setSelectedBlueprints(prev =>
+      prev.includes(id) ? prev.filter(bid => bid !== id) : [...prev, id]
+    );
+  };
+
+  const unapprovedBlueprints = blueprints.filter(b => !b.is_approved);
+
   const getPlaceholderText = () => {
     if (formData.channel === "email") {
       return `Hi {{first_name}},
@@ -259,22 +404,94 @@ No links in first post.`;
         <div>
           <h1 className="heading-2" data-testid="blueprints-heading">Message Blueprints</h1>
           <p className="text-muted-foreground">
-            Create reusable message structures with intent and angle
+            Create, import, or AI-generate message templates
           </p>
         </div>
         {canManageBlueprints && (
-          <Button
-            onClick={() => {
-              resetForm();
-              setDialogOpen(true);
-            }}
-            data-testid="create-blueprint-btn"
-          >
-            <Plus className="w-4 h-4 mr-2" />
-            Create Blueprint
-          </Button>
+          <div className="flex gap-2 flex-wrap">
+            <Button
+              variant="outline"
+              onClick={() => setImportDialogOpen(true)}
+              data-testid="import-blueprints-btn"
+            >
+              <Upload className="w-4 h-4 mr-2" />
+              Import CSV
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setAiResult(null);
+                setAiGenerateDialogOpen(true);
+              }}
+              data-testid="ai-generate-btn"
+            >
+              <Sparkles className="w-4 h-4 mr-2" />
+              AI Generate
+            </Button>
+            <Button
+              onClick={() => {
+                resetForm();
+                setDialogOpen(true);
+              }}
+              data-testid="create-blueprint-btn"
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              Create Manual
+            </Button>
+          </div>
         )}
       </div>
+
+      {/* Pending Approval Banner */}
+      {unapprovedBlueprints.length > 0 && (
+        <Card className="card-surface border-yellow-500/30 bg-yellow-500/5" data-testid="pending-approval-banner">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between flex-wrap gap-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-yellow-500/20 flex items-center justify-center">
+                  <AlertTriangle className="w-5 h-5 text-yellow-600 dark:text-yellow-400" />
+                </div>
+                <div>
+                  <p className="font-semibold">{unapprovedBlueprints.length} blueprint(s) pending approval</p>
+                  <p className="text-sm text-muted-foreground">
+                    {selectedBlueprints.length > 0 
+                      ? `${selectedBlueprints.length} selected` 
+                      : "Approve blueprints before they can be used for message generation"}
+                  </p>
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    if (selectedBlueprints.length === unapprovedBlueprints.length) {
+                      setSelectedBlueprints([]);
+                    } else {
+                      setSelectedBlueprints(unapprovedBlueprints.map(b => b.id));
+                    }
+                  }}
+                  data-testid="select-all-unapproved-btn"
+                >
+                  {selectedBlueprints.length === unapprovedBlueprints.length ? (
+                    <><CheckSquare className="w-4 h-4 mr-2" /> Deselect All</>
+                  ) : (
+                    <><Square className="w-4 h-4 mr-2" /> Select All</>
+                  )}
+                </Button>
+                <Button
+                  onClick={handleBulkApprove}
+                  disabled={selectedBlueprints.length === 0}
+                  data-testid="bulk-approve-btn"
+                >
+                  <CheckCircle className="w-4 h-4 mr-2" />
+                  Approve ({selectedBlueprints.length || unapprovedBlueprints.length})
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Channel Filter */}
       <div className="flex gap-2 flex-wrap">
@@ -313,13 +530,19 @@ No links in first post.`;
             <FileText className="w-12 h-12 mx-auto mb-4 text-muted-foreground/50" />
             <h3 className="text-lg font-semibold mb-2">No blueprints yet</h3>
             <p className="text-muted-foreground mb-4">
-              Create your first message blueprint to start generating outreach
+              Create manually, import from CSV, or let AI generate blueprints for you
             </p>
             {canManageBlueprints && (
-              <Button onClick={() => setDialogOpen(true)}>
-                <Plus className="w-4 h-4 mr-2" />
-                Create Blueprint
-              </Button>
+              <div className="flex gap-2 justify-center">
+                <Button variant="outline" onClick={() => setAiGenerateDialogOpen(true)}>
+                  <Sparkles className="w-4 h-4 mr-2" />
+                  AI Generate
+                </Button>
+                <Button onClick={() => setDialogOpen(true)}>
+                  <Plus className="w-4 h-4 mr-2" />
+                  Create Manual
+                </Button>
+              </div>
             )}
           </CardContent>
         </Card>
@@ -328,24 +551,43 @@ No links in first post.`;
           {blueprints.map((blueprint) => {
             const config = channelConfig[blueprint.channel];
             const ChannelIcon = config?.icon || Mail;
+            const isSelected = selectedBlueprints.includes(blueprint.id);
             
             return (
               <Card
                 key={blueprint.id}
-                className="card-surface group"
+                className={cn(
+                  "card-surface group",
+                  !blueprint.is_approved && "border-yellow-500/30",
+                  isSelected && "bg-primary/5 border-primary"
+                )}
                 data-testid={`blueprint-card-${blueprint.id}`}
               >
                 <CardHeader className="pb-3">
                   <div className="flex items-start justify-between">
-                    <div className={cn("channel-badge", config?.color)}>
-                      <ChannelIcon className="w-3.5 h-3.5" />
-                      {config?.label}
+                    <div className="flex items-center gap-2">
+                      {!blueprint.is_approved && (
+                        <Checkbox
+                          checked={isSelected}
+                          onCheckedChange={() => toggleBlueprintSelection(blueprint.id)}
+                          data-testid={`blueprint-checkbox-${blueprint.id}`}
+                        />
+                      )}
+                      <div className={cn("channel-badge", config?.color)}>
+                        <ChannelIcon className="w-3.5 h-3.5" />
+                        {config?.label}
+                      </div>
                     </div>
                     <div className="flex items-center gap-1">
-                      {blueprint.is_approved && (
+                      {blueprint.is_approved ? (
                         <Badge className="status-safe text-xs">
                           <CheckCircle className="w-3 h-3 mr-1" />
-                          Auto-approved
+                          Approved
+                        </Badge>
+                      ) : (
+                        <Badge className="bg-yellow-500/15 text-yellow-600 dark:text-yellow-400 border-yellow-500/20 text-xs">
+                          <Clock className="w-3 h-3 mr-1" />
+                          Pending
                         </Badge>
                       )}
                       {canManageBlueprints && (
@@ -370,7 +612,7 @@ No links in first post.`;
                             {!blueprint.is_approved && (
                               <DropdownMenuItem onClick={() => handleApproveBlueprint(blueprint.id)}>
                                 <CheckCircle className="w-4 h-4 mr-2" />
-                                Approve for Auto-send
+                                Approve
                               </DropdownMenuItem>
                             )}
                             <DropdownMenuItem onClick={() => {
@@ -574,18 +816,6 @@ No links in first post.`;
                   className="font-mono text-sm"
                   data-testid="blueprint-structure-input"
                 />
-                {formData.channel === "email" && (
-                  <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
-                    <AlertTriangle className="w-3 h-3" />
-                    Email: Plain text only, 4-6 lines max, no emojis, no links in first touch
-                  </p>
-                )}
-                {formData.channel === "whatsapp" && (
-                  <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
-                    <AlertTriangle className="w-3 h-3" />
-                    WhatsApp: Max 3 lines, mandatory opt-out line, conversational tone
-                  </p>
-                )}
               </div>
 
               <div className="space-y-2">
@@ -600,9 +830,6 @@ No links in first post.`;
                   className="w-32"
                   data-testid="blueprint-cooldown-input"
                 />
-                <p className="text-xs text-muted-foreground">
-                  Minimum days before this blueprint can be reused for the same contact
-                </p>
               </div>
             </div>
             <DialogFooter>
@@ -611,6 +838,393 @@ No links in first post.`;
               </Button>
             </DialogFooter>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Import Dialog */}
+      <Dialog open={importDialogOpen} onOpenChange={setImportDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Import Blueprints from CSV</DialogTitle>
+            <DialogDescription>
+              Upload a CSV file to import multiple blueprints at once
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <div className="border-2 border-dashed border-border rounded-lg p-8 text-center">
+              <Upload className="w-10 h-10 mx-auto mb-4 text-muted-foreground" />
+              <p className="mb-2">Drag and drop your CSV file here, or</p>
+              <label>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".csv"
+                  onChange={handleImport}
+                  className="hidden"
+                  data-testid="csv-file-input"
+                />
+                <Button variant="secondary" asChild>
+                  <span className="cursor-pointer">Browse Files</span>
+                </Button>
+              </label>
+              <div className="text-xs text-muted-foreground mt-4 text-left">
+                <p className="font-medium mb-2">Required columns:</p>
+                <ul className="list-disc list-inside space-y-1">
+                  <li>name - Blueprint name</li>
+                  <li>channel - email, whatsapp, or linkedin</li>
+                  <li>structure - The message template</li>
+                </ul>
+                <p className="font-medium mt-3 mb-2">Optional columns:</p>
+                <ul className="list-disc list-inside space-y-1">
+                  <li>intent - awareness, conversation, follow_up</li>
+                  <li>angle - cost, risk, downtime, growth, compliance</li>
+                  <li>tone - calm_authority, observational, direct</li>
+                  <li>description, cooldown_days</li>
+                </ul>
+                <p className="mt-3 text-yellow-600 dark:text-yellow-400">
+                  Note: Imported blueprints require approval before use
+                </p>
+              </div>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* AI Generate Dialog */}
+      <Dialog open={aiGenerateDialogOpen} onOpenChange={(open) => {
+        if (!open) {
+          setAiGenerateDialogOpen(false);
+          setAiResult(null);
+        }
+      }}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Sparkles className="w-5 h-5 text-primary" />
+              AI Blueprint Generator
+            </DialogTitle>
+            <DialogDescription>
+              Let AI create professional outreach blueprints based on your specifications
+            </DialogDescription>
+          </DialogHeader>
+
+          {!aiResult ? (
+            <>
+              <div className="space-y-4 py-4">
+                {/* Batch Mode Toggle */}
+                <div className="flex items-center gap-3 p-4 bg-muted/30 rounded-lg">
+                  <Checkbox
+                    id="batch-mode"
+                    checked={aiForm.batch_mode}
+                    onCheckedChange={(checked) => setAiForm({ ...aiForm, batch_mode: checked })}
+                    data-testid="ai-batch-mode-checkbox"
+                  />
+                  <div className="flex-1">
+                    <Label htmlFor="batch-mode" className="font-medium cursor-pointer">
+                      Batch Generation Mode
+                    </Label>
+                    <p className="text-xs text-muted-foreground">
+                      Generate multiple blueprints for different channel/intent/angle combinations
+                    </p>
+                  </div>
+                </div>
+
+                {!aiForm.batch_mode ? (
+                  /* Single Blueprint Generation */
+                  <>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label>Channel</Label>
+                        <Select
+                          value={aiForm.channel}
+                          onValueChange={(value) => setAiForm({ ...aiForm, channel: value })}
+                        >
+                          <SelectTrigger data-testid="ai-channel-select">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {Object.entries(channelConfig).map(([key, config]) => (
+                              <SelectItem key={key} value={key}>
+                                <div className="flex items-center gap-2">
+                                  <config.icon className="w-4 h-4" />
+                                  {config.label}
+                                </div>
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Intent</Label>
+                        <Select
+                          value={aiForm.intent}
+                          onValueChange={(value) => setAiForm({ ...aiForm, intent: value })}
+                        >
+                          <SelectTrigger data-testid="ai-intent-select">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {intentOptions.map((opt) => (
+                              <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label>Angle</Label>
+                        <Select
+                          value={aiForm.angle}
+                          onValueChange={(value) => setAiForm({ ...aiForm, angle: value })}
+                        >
+                          <SelectTrigger data-testid="ai-angle-select">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {angleOptions.map((opt) => (
+                              <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Tone</Label>
+                        <Select
+                          value={aiForm.tone}
+                          onValueChange={(value) => setAiForm({ ...aiForm, tone: value })}
+                        >
+                          <SelectTrigger data-testid="ai-tone-select">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {toneOptions.map((opt) => (
+                              <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  /* Batch Generation Options */
+                  <>
+                    <div className="space-y-2">
+                      <Label>Channels (select multiple)</Label>
+                      <div className="flex flex-wrap gap-2">
+                        {Object.entries(channelConfig).map(([key, config]) => (
+                          <Button
+                            key={key}
+                            type="button"
+                            variant={aiForm.batch_channels.includes(key) ? "default" : "outline"}
+                            size="sm"
+                            onClick={() => {
+                              const newChannels = aiForm.batch_channels.includes(key)
+                                ? aiForm.batch_channels.filter(c => c !== key)
+                                : [...aiForm.batch_channels, key];
+                              setAiForm({ ...aiForm, batch_channels: newChannels });
+                            }}
+                          >
+                            <config.icon className="w-4 h-4 mr-1" />
+                            {config.label}
+                          </Button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label>Intents (select multiple)</Label>
+                      <div className="flex flex-wrap gap-2">
+                        {intentOptions.map((opt) => (
+                          <Button
+                            key={opt.value}
+                            type="button"
+                            variant={aiForm.batch_intents.includes(opt.value) ? "default" : "outline"}
+                            size="sm"
+                            onClick={() => {
+                              const newIntents = aiForm.batch_intents.includes(opt.value)
+                                ? aiForm.batch_intents.filter(i => i !== opt.value)
+                                : [...aiForm.batch_intents, opt.value];
+                              setAiForm({ ...aiForm, batch_intents: newIntents });
+                            }}
+                          >
+                            {opt.label}
+                          </Button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label>Angles (select multiple)</Label>
+                      <div className="flex flex-wrap gap-2">
+                        {angleOptions.map((opt) => (
+                          <Button
+                            key={opt.value}
+                            type="button"
+                            variant={aiForm.batch_angles.includes(opt.value) ? "default" : "outline"}
+                            size="sm"
+                            onClick={() => {
+                              const newAngles = aiForm.batch_angles.includes(opt.value)
+                                ? aiForm.batch_angles.filter(a => a !== opt.value)
+                                : [...aiForm.batch_angles, opt.value];
+                              setAiForm({ ...aiForm, batch_angles: newAngles });
+                            }}
+                          >
+                            {opt.label}
+                          </Button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="p-3 bg-muted/50 rounded-lg text-sm">
+                      Will generate: <strong>{aiForm.batch_channels.length} × {aiForm.batch_intents.length} × {aiForm.batch_angles.length} = {aiForm.batch_channels.length * aiForm.batch_intents.length * aiForm.batch_angles.length}</strong> blueprints
+                    </div>
+                  </>
+                )}
+
+                {/* Common fields */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Target Industry (optional)</Label>
+                    <Input
+                      placeholder="e.g., SaaS, Healthcare, Finance"
+                      value={aiForm.industry}
+                      onChange={(e) => setAiForm({ ...aiForm, industry: e.target.value })}
+                      data-testid="ai-industry-input"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Target Role (optional)</Label>
+                    <Input
+                      placeholder="e.g., CTO, VP Engineering"
+                      value={aiForm.target_role}
+                      onChange={(e) => setAiForm({ ...aiForm, target_role: e.target.value })}
+                      data-testid="ai-role-input"
+                    />
+                  </div>
+                </div>
+
+                {!aiForm.batch_mode && (
+                  <div className="space-y-2">
+                    <Label>Additional Context (optional)</Label>
+                    <Textarea
+                      placeholder="Any specific requirements or context for the message..."
+                      value={aiForm.additional_context}
+                      onChange={(e) => setAiForm({ ...aiForm, additional_context: e.target.value })}
+                      rows={3}
+                      data-testid="ai-context-input"
+                    />
+                  </div>
+                )}
+
+                <div className="p-3 bg-yellow-500/10 rounded-lg text-sm text-yellow-600 dark:text-yellow-400 flex items-start gap-2">
+                  <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
+                  <span>AI-generated blueprints require your approval before they can be used for message generation.</span>
+                </div>
+              </div>
+
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setAiGenerateDialogOpen(false)}>
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleAIGenerate}
+                  disabled={generating || (aiForm.batch_mode && (aiForm.batch_channels.length === 0 || aiForm.batch_intents.length === 0 || aiForm.batch_angles.length === 0))}
+                  data-testid="ai-generate-submit"
+                >
+                  {generating ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Generating...
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="w-4 h-4 mr-2" />
+                      {aiForm.batch_mode ? "Generate Batch" : "Generate Blueprint"}
+                    </>
+                  )}
+                </Button>
+              </DialogFooter>
+            </>
+          ) : (
+            /* AI Result */
+            <>
+              <div className="space-y-4 py-4">
+                <div className="p-4 bg-secondary/10 rounded-lg">
+                  <div className="flex items-center gap-2 mb-2">
+                    <CheckCircle className="w-5 h-5 text-secondary" />
+                    <span className="font-semibold">
+                      {aiForm.batch_mode 
+                        ? `${aiResult.generated_count} Blueprint(s) Generated!`
+                        : "Blueprint Generated!"}
+                    </span>
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    Review the generated blueprint(s) and approve to use for message generation
+                  </p>
+                </div>
+
+                {aiForm.batch_mode ? (
+                  /* Batch result */
+                  <ScrollArea className="h-64">
+                    <div className="space-y-2">
+                      {aiResult.blueprints?.map((bp, i) => (
+                        <div key={i} className="p-3 bg-muted/30 rounded-lg">
+                          <div className="flex items-center gap-2 mb-1">
+                            <Badge variant="outline" className="text-xs capitalize">{bp.channel}</Badge>
+                            <span className="font-medium text-sm">{bp.name}</span>
+                          </div>
+                          <p className="text-xs text-muted-foreground">
+                            {bp.intent} • {bp.angle}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  </ScrollArea>
+                ) : (
+                  /* Single result */
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <Label>Generated Blueprint</Label>
+                      <Badge variant="outline">{aiResult.blueprint?.name}</Badge>
+                    </div>
+                    <div className="p-4 bg-muted/50 rounded-lg">
+                      <pre className="text-sm whitespace-pre-wrap font-mono">
+                        {aiResult.blueprint?.structure}
+                      </pre>
+                    </div>
+                  </div>
+                )}
+
+                {aiResult.errors?.length > 0 && (
+                  <div className="p-3 bg-destructive/10 rounded-lg">
+                    <p className="text-sm font-medium text-destructive mb-2">Errors:</p>
+                    <ul className="text-xs text-destructive space-y-1">
+                      {aiResult.errors.slice(0, 5).map((err, i) => (
+                        <li key={i}>{err}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+
+              <DialogFooter className="gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => setAiResult(null)}
+                >
+                  Generate More
+                </Button>
+                <Button onClick={() => {
+                  setAiGenerateDialogOpen(false);
+                  setAiResult(null);
+                }}>
+                  Done
+                </Button>
+              </DialogFooter>
+            </>
+          )}
         </DialogContent>
       </Dialog>
     </div>
