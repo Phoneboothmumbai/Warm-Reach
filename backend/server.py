@@ -1187,6 +1187,244 @@ async def approve_blueprint(
     await log_audit(current_user["tenant_id"], current_user["id"], "approve", "blueprint", blueprint_id)
     return {"message": "Blueprint approved"}
 
+@api_router.post("/blueprints/generate-ai", response_model=AIBlueprintResponse)
+async def generate_ai_blueprint_endpoint(
+    request: AIBlueprintRequest,
+    current_user: Dict = Depends(get_current_user)
+):
+    """Generate a single blueprint using AI. Blueprint is created but NOT approved - requires manual approval."""
+    if current_user["role"] not in [UserRole.OWNER, UserRole.ADMIN]:
+        raise HTTPException(status_code=403, detail="Only owners and admins can generate blueprints")
+    
+    # Generate blueprint using AI
+    ai_result = await generate_ai_blueprint(
+        channel=request.channel,
+        intent=request.intent,
+        angle=request.angle,
+        tone=request.tone,
+        industry=request.industry,
+        target_role=request.target_role,
+        additional_context=request.additional_context
+    )
+    
+    # Create blueprint (not approved by default)
+    blueprint = Blueprint(
+        name=ai_result["name"],
+        description=ai_result["description"],
+        channel=request.channel,
+        intent=request.intent,
+        angle=request.angle,
+        tone=request.tone,
+        structure=ai_result["structure"],
+        cooldown_days=7,
+        tenant_id=current_user["tenant_id"],
+        is_approved=False  # Requires manual approval
+    )
+    
+    doc = blueprint.model_dump()
+    doc['created_at'] = doc['created_at'].isoformat()
+    doc['updated_at'] = doc['updated_at'].isoformat()
+    
+    await db.blueprints.insert_one(doc)
+    await log_audit(current_user["tenant_id"], current_user["id"], "ai_generate", "blueprint", blueprint.id)
+    
+    return AIBlueprintResponse(
+        blueprint=doc,
+        requires_approval=True
+    )
+
+@api_router.post("/blueprints/generate-batch-ai")
+async def generate_batch_ai_blueprints(
+    request: BatchAIBlueprintRequest,
+    current_user: Dict = Depends(get_current_user)
+):
+    """Generate multiple blueprints using AI for different channel/intent/angle combinations."""
+    if current_user["role"] not in [UserRole.OWNER, UserRole.ADMIN]:
+        raise HTTPException(status_code=403, detail="Only owners and admins can generate blueprints")
+    
+    generated = []
+    errors = []
+    
+    for channel in request.channels:
+        for intent in request.intents:
+            for angle in request.angles:
+                try:
+                    # Generate blueprint using AI
+                    ai_result = await generate_ai_blueprint(
+                        channel=channel,
+                        intent=intent,
+                        angle=angle,
+                        tone=request.tone,
+                        industry=request.industry,
+                        target_role=request.target_role
+                    )
+                    
+                    # Create blueprint (not approved by default)
+                    blueprint = Blueprint(
+                        name=ai_result["name"],
+                        description=ai_result["description"],
+                        channel=channel,
+                        intent=intent,
+                        angle=angle,
+                        tone=request.tone,
+                        structure=ai_result["structure"],
+                        cooldown_days=7,
+                        tenant_id=current_user["tenant_id"],
+                        is_approved=False
+                    )
+                    
+                    doc = blueprint.model_dump()
+                    doc['created_at'] = doc['created_at'].isoformat()
+                    doc['updated_at'] = doc['updated_at'].isoformat()
+                    
+                    await db.blueprints.insert_one(doc)
+                    
+                    generated.append({
+                        "id": blueprint.id,
+                        "name": blueprint.name,
+                        "channel": channel,
+                        "intent": intent,
+                        "angle": angle
+                    })
+                    
+                except Exception as e:
+                    errors.append(f"{channel}/{intent}/{angle}: {str(e)}")
+                    logger.error(f"Batch blueprint generation error: {e}")
+    
+    await log_audit(current_user["tenant_id"], current_user["id"], "batch_ai_generate", "blueprint", "bulk", {
+        "generated": len(generated)
+    })
+    
+    return {
+        "generated_count": len(generated),
+        "errors": errors[:10],
+        "blueprints": generated
+    }
+
+@api_router.post("/blueprints/import", response_model=BulkBlueprintImportResponse)
+async def import_blueprints(
+    file: UploadFile = File(...),
+    current_user: Dict = Depends(get_current_user)
+):
+    """Import blueprints from CSV file. All imported blueprints require approval before use."""
+    if current_user["role"] not in [UserRole.OWNER, UserRole.ADMIN]:
+        raise HTTPException(status_code=403, detail="Only owners and admins can import blueprints")
+    
+    if not file.filename.endswith('.csv'):
+        raise HTTPException(status_code=400, detail="Only CSV files are supported")
+    
+    content = await file.read()
+    decoded = content.decode('utf-8')
+    reader = csv.DictReader(io.StringIO(decoded))
+    
+    imported = 0
+    errors = []
+    blueprints = []
+    
+    valid_channels = ["email", "whatsapp", "linkedin"]
+    valid_intents = ["awareness", "conversation", "follow_up"]
+    valid_angles = ["cost", "risk", "downtime", "growth", "compliance"]
+    valid_tones = ["calm_authority", "observational", "direct"]
+    
+    for row_num, row in enumerate(reader, start=2):
+        try:
+            # Get and validate fields
+            name = row.get('name') or row.get('Name') or row.get('NAME')
+            if not name:
+                errors.append(f"Row {row_num}: Missing name")
+                continue
+            
+            channel = (row.get('channel') or row.get('Channel') or row.get('CHANNEL') or 'email').lower()
+            if channel not in valid_channels:
+                errors.append(f"Row {row_num}: Invalid channel '{channel}'")
+                continue
+            
+            intent = (row.get('intent') or row.get('Intent') or row.get('INTENT') or 'awareness').lower()
+            if intent not in valid_intents:
+                errors.append(f"Row {row_num}: Invalid intent '{intent}'")
+                continue
+            
+            angle = (row.get('angle') or row.get('Angle') or row.get('ANGLE') or 'cost').lower()
+            if angle not in valid_angles:
+                errors.append(f"Row {row_num}: Invalid angle '{angle}'")
+                continue
+            
+            tone = (row.get('tone') or row.get('Tone') or row.get('TONE') or 'calm_authority').lower().replace(' ', '_')
+            if tone not in valid_tones:
+                errors.append(f"Row {row_num}: Invalid tone '{tone}'")
+                continue
+            
+            structure = row.get('structure') or row.get('Structure') or row.get('STRUCTURE') or row.get('template') or row.get('Template')
+            if not structure:
+                errors.append(f"Row {row_num}: Missing structure/template")
+                continue
+            
+            cooldown = int(row.get('cooldown_days') or row.get('cooldown') or row.get('Cooldown') or 7)
+            description = row.get('description') or row.get('Description') or ''
+            
+            # Create blueprint (not approved by default)
+            blueprint = Blueprint(
+                name=name,
+                description=description,
+                channel=channel,
+                intent=intent,
+                angle=angle,
+                tone=tone,
+                structure=structure,
+                cooldown_days=cooldown,
+                tenant_id=current_user["tenant_id"],
+                is_approved=False  # Imported blueprints require approval
+            )
+            
+            doc = blueprint.model_dump()
+            doc['created_at'] = doc['created_at'].isoformat()
+            doc['updated_at'] = doc['updated_at'].isoformat()
+            
+            await db.blueprints.insert_one(doc)
+            imported += 1
+            blueprints.append({
+                "id": blueprint.id,
+                "name": blueprint.name,
+                "channel": channel,
+                "intent": intent,
+                "angle": angle
+            })
+            
+        except Exception as e:
+            errors.append(f"Row {row_num}: {str(e)}")
+    
+    await log_audit(current_user["tenant_id"], current_user["id"], "import", "blueprint", "bulk", {
+        "imported": imported,
+        "errors": len(errors)
+    })
+    
+    return BulkBlueprintImportResponse(
+        imported=imported,
+        errors=errors[:10],
+        blueprints=blueprints
+    )
+
+@api_router.post("/blueprints/approve-bulk")
+async def approve_bulk_blueprints(
+    blueprint_ids: List[str],
+    current_user: Dict = Depends(get_current_user)
+):
+    """Approve multiple blueprints at once."""
+    if current_user["role"] not in [UserRole.OWNER, UserRole.ADMIN]:
+        raise HTTPException(status_code=403, detail="Only owners and admins can approve blueprints")
+    
+    result = await db.blueprints.update_many(
+        {
+            "id": {"$in": blueprint_ids},
+            "tenant_id": current_user["tenant_id"]
+        },
+        {"$set": {"is_approved": True, "updated_at": datetime.now(timezone.utc).isoformat()}}
+    )
+    
+    await log_audit(current_user["tenant_id"], current_user["id"], "bulk_approve", "blueprint", ",".join(blueprint_ids))
+    
+    return {"approved_count": result.modified_count}
+
 # ========================
 # MESSAGES ROUTES
 # ========================
