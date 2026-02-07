@@ -2037,6 +2037,175 @@ async def update_tenant_settings(
     
     return {"message": "Settings updated"}
 
+@api_router.get("/settings/whatsapp", response_model=WhatsAppSettingsResponse)
+async def get_whatsapp_settings(current_user: Dict = Depends(get_current_user)):
+    """Get WhatsApp Business API configuration status for the tenant."""
+    if current_user["role"] not in [UserRole.OWNER, UserRole.ADMIN]:
+        raise HTTPException(status_code=403, detail="Only owner and admin can view WhatsApp settings")
+    
+    # Check if WhatsApp credentials exist for this tenant
+    wa_config = await db.whatsapp_config.find_one(
+        {"tenant_id": current_user["tenant_id"]},
+        {"_id": 0, "access_token": 0}  # Never expose the access token
+    )
+    
+    if not wa_config:
+        return WhatsAppSettingsResponse(is_configured=False)
+    
+    return WhatsAppSettingsResponse(
+        phone_number_id=wa_config.get("phone_number_id"),
+        is_configured=True,
+        verified_at=wa_config.get("verified_at")
+    )
+
+@api_router.post("/settings/whatsapp")
+async def save_whatsapp_settings(
+    settings: WhatsAppSettings,
+    current_user: Dict = Depends(get_current_user)
+):
+    """Save WhatsApp Business Cloud API credentials for the tenant."""
+    if current_user["role"] != UserRole.OWNER:
+        raise HTTPException(status_code=403, detail="Only owner can configure WhatsApp settings")
+    
+    # Validate the credentials by making a test API call
+    import httpx
+    
+    try:
+        async with httpx.AsyncClient() as client:
+            # Test the credentials by fetching the phone number info
+            response = await client.get(
+                f"https://graph.facebook.com/v19.0/{settings.phone_number_id}",
+                headers={"Authorization": f"Bearer {settings.access_token}"},
+                timeout=10.0
+            )
+            
+            if response.status_code != 200:
+                error_data = response.json()
+                error_msg = error_data.get("error", {}).get("message", "Invalid credentials")
+                raise HTTPException(status_code=400, detail=f"WhatsApp API validation failed: {error_msg}")
+                
+    except httpx.RequestError as e:
+        raise HTTPException(status_code=400, detail=f"Failed to validate credentials: {str(e)}")
+    
+    # Save the credentials (access_token should be encrypted in production)
+    await db.whatsapp_config.update_one(
+        {"tenant_id": current_user["tenant_id"]},
+        {
+            "$set": {
+                "tenant_id": current_user["tenant_id"],
+                "phone_number_id": settings.phone_number_id,
+                "access_token": settings.access_token,  # In production, encrypt this
+                "verified_at": datetime.now(timezone.utc).isoformat(),
+                "updated_by": current_user["id"]
+            }
+        },
+        upsert=True
+    )
+    
+    await log_audit(
+        current_user["tenant_id"], 
+        current_user["id"], 
+        "configure", 
+        "whatsapp", 
+        "settings",
+        {"phone_number_id": settings.phone_number_id}
+    )
+    
+    return {"message": "WhatsApp credentials saved and verified successfully"}
+
+@api_router.delete("/settings/whatsapp")
+async def delete_whatsapp_settings(current_user: Dict = Depends(get_current_user)):
+    """Remove WhatsApp Business API credentials for the tenant."""
+    if current_user["role"] != UserRole.OWNER:
+        raise HTTPException(status_code=403, detail="Only owner can remove WhatsApp settings")
+    
+    result = await db.whatsapp_config.delete_one({"tenant_id": current_user["tenant_id"]})
+    
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="WhatsApp configuration not found")
+    
+    await log_audit(
+        current_user["tenant_id"], 
+        current_user["id"], 
+        "delete", 
+        "whatsapp", 
+        "settings"
+    )
+    
+    return {"message": "WhatsApp configuration removed"}
+
+@api_router.post("/whatsapp/send")
+async def send_whatsapp_message(
+    request: WhatsAppSendRequest,
+    current_user: Dict = Depends(get_current_user)
+):
+    """Send a WhatsApp message using the Business Cloud API."""
+    # Get WhatsApp configuration
+    wa_config = await db.whatsapp_config.find_one(
+        {"tenant_id": current_user["tenant_id"]},
+        {"_id": 0}
+    )
+    
+    if not wa_config:
+        raise HTTPException(status_code=400, detail="WhatsApp is not configured. Please add your API credentials in Settings.")
+    
+    # Check rate limit
+    can_send, remaining = await check_rate_limit(current_user["tenant_id"], Channel.WHATSAPP)
+    if not can_send:
+        raise HTTPException(status_code=429, detail="Daily WhatsApp rate limit exceeded")
+    
+    # Format phone number (remove + and spaces)
+    to_phone = re.sub(r'[^\d]', '', request.to_phone)
+    
+    import httpx
+    
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                f"https://graph.facebook.com/v19.0/{wa_config['phone_number_id']}/messages",
+                headers={
+                    "Authorization": f"Bearer {wa_config['access_token']}",
+                    "Content-Type": "application/json"
+                },
+                json={
+                    "messaging_product": "whatsapp",
+                    "recipient_type": "individual",
+                    "to": to_phone,
+                    "type": "text",
+                    "text": {
+                        "body": request.message
+                    }
+                },
+                timeout=30.0
+            )
+            
+            response_data = response.json()
+            
+            if response.status_code != 200:
+                error_msg = response_data.get("error", {}).get("message", "Failed to send message")
+                logger.error(f"WhatsApp send failed: {error_msg}")
+                raise HTTPException(status_code=400, detail=f"WhatsApp API error: {error_msg}")
+            
+            # Log successful send
+            await log_audit(
+                current_user["tenant_id"],
+                current_user["id"],
+                "send",
+                "whatsapp",
+                to_phone,
+                {"message_id": response_data.get("messages", [{}])[0].get("id")}
+            )
+            
+            return {
+                "success": True,
+                "message_id": response_data.get("messages", [{}])[0].get("id"),
+                "rate_limit_remaining": remaining - 1
+            }
+            
+    except httpx.RequestError as e:
+        logger.error(f"WhatsApp request error: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to connect to WhatsApp API: {str(e)}")
+
 @api_router.get("/settings/users", response_model=List[UserResponse])
 async def get_tenant_users(current_user: Dict = Depends(get_current_user)):
     if current_user["role"] not in [UserRole.OWNER, UserRole.ADMIN]:
