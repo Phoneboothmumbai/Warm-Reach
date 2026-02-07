@@ -648,6 +648,32 @@ class BatchGenerateResponse(BaseModel):
     errors: List[str]
     messages: List[Dict[str, Any]]
 
+class AIBlueprintRequest(BaseModel):
+    channel: Channel
+    intent: Intent
+    angle: Angle
+    tone: Tone
+    industry: Optional[str] = None
+    target_role: Optional[str] = None
+    additional_context: Optional[str] = None
+
+class AIBlueprintResponse(BaseModel):
+    blueprint: Dict[str, Any]
+    requires_approval: bool = True
+
+class BulkBlueprintImportResponse(BaseModel):
+    imported: int
+    errors: List[str]
+    blueprints: List[Dict[str, Any]]
+
+class BatchAIBlueprintRequest(BaseModel):
+    channels: List[Channel] = [Channel.EMAIL]
+    intents: List[Intent] = [Intent.AWARENESS]
+    angles: List[Angle] = [Angle.COST, Angle.GROWTH, Angle.RISK]
+    tone: Tone = Tone.CALM_AUTHORITY
+    industry: Optional[str] = None
+    target_role: Optional[str] = None
+
 # ========================
 # HELPER FUNCTIONS
 # ========================
