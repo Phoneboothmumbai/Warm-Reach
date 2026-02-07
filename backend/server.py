@@ -143,13 +143,13 @@ def generate_fallback_message(contact: Dict, blueprint: Dict, previous_messages:
     """Fallback message generation with variation if AI fails"""
     structure = blueprint.get("structure", "")
     
-    # Basic placeholder replacement
-    content = structure.replace("{{first_name}}", contact.get("first_name", ""))
-    content = content.replace("{{last_name}}", contact.get("last_name", ""))
-    content = content.replace("{{company_name}}", contact.get("company_name", "your company"))
-    content = content.replace("{{job_title}}", contact.get("job_title", ""))
-    content = content.replace("{{city}}", contact.get("city", ""))
-    content = content.replace("{{country}}", contact.get("country", ""))
+    # Basic placeholder replacement - handle None values
+    content = structure.replace("{{first_name}}", contact.get("first_name") or "")
+    content = content.replace("{{last_name}}", contact.get("last_name") or "")
+    content = content.replace("{{company_name}}", contact.get("company_name") or "your company")
+    content = content.replace("{{job_title}}", contact.get("job_title") or "")
+    content = content.replace("{{city}}", contact.get("city") or "")
+    content = content.replace("{{country}}", contact.get("country") or "")
     
     # Add variation hooks based on angle
     angle = blueprint.get("angle", "cost")
