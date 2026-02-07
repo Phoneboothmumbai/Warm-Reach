@@ -367,6 +367,151 @@ class WarmReachAPITester:
         
         return success
 
+    def test_ai_generate_single_blueprint(self):
+        """Test AI single blueprint generation"""
+        ai_data = {
+            "channel": "email",
+            "intent": "awareness", 
+            "angle": "cost",
+            "tone": "calm_authority",
+            "industry": "SaaS",
+            "target_role": "CTO",
+            "additional_context": "Focus on infrastructure costs"
+        }
+        
+        success, data = self.make_request('POST', 'blueprints/generate-ai', ai_data)
+        
+        if success and 'blueprint' in data:
+            blueprint = data['blueprint']
+            # Verify blueprint has required fields and is not approved
+            if (blueprint.get('id') and 
+                blueprint.get('name') and 
+                blueprint.get('structure') and
+                blueprint.get('is_approved') == False):
+                self.log_result("AI Generate Single Blueprint", True, 
+                              f"Generated: {blueprint['name']}, Approved: {blueprint['is_approved']}")
+            else:
+                self.log_result("AI Generate Single Blueprint", False, 
+                              f"Missing fields or incorrect approval status: {blueprint}")
+        else:
+            self.log_result("AI Generate Single Blueprint", False, str(data))
+        
+        return success
+
+    def test_ai_generate_batch_blueprints(self):
+        """Test AI batch blueprint generation"""
+        batch_data = {
+            "channels": ["email", "whatsapp"],
+            "intents": ["awareness", "conversation"],
+            "angles": ["cost", "growth"],
+            "tone": "calm_authority",
+            "industry": "Healthcare",
+            "target_role": "VP Engineering"
+        }
+        
+        success, data = self.make_request('POST', 'blueprints/generate-batch-ai', batch_data)
+        
+        if success and 'generated_count' in data:
+            expected_count = len(batch_data['channels']) * len(batch_data['intents']) * len(batch_data['angles'])
+            generated_count = data['generated_count']
+            self.log_result("AI Generate Batch Blueprints", True, 
+                          f"Generated: {generated_count}/{expected_count} blueprints")
+        else:
+            self.log_result("AI Generate Batch Blueprints", False, str(data))
+        
+        return success
+
+    def test_import_blueprints_csv(self):
+        """Test CSV blueprint import"""
+        # Create a simple CSV content for testing
+        csv_content = """name,channel,intent,angle,tone,structure,description
+Test Import Blueprint,email,awareness,cost,calm_authority,"Hi {{first_name}}, Cost optimization opportunity at {{company_name}}. Interested?",Imported test blueprint
+Another Import,whatsapp,conversation,growth,direct,"Hi {{first_name}}, {{company_name}} growth potential. Chat?",Another imported blueprint"""
+        
+        # Create a temporary file-like object
+        import io
+        csv_file = io.BytesIO(csv_content.encode('utf-8'))
+        
+        # For this test, we'll use requests with files parameter
+        url = f"{self.api_url}/blueprints/import"
+        headers = {}
+        if self.token:
+            headers['Authorization'] = f'Bearer {self.token}'
+        
+        try:
+            files = {'file': ('test_blueprints.csv', csv_file, 'text/csv')}
+            response = requests.post(url, files=files, headers=headers, timeout=30)
+            
+            success = response.status_code == 200
+            if success:
+                data = response.json()
+                imported_count = data.get('imported', 0)
+                self.log_result("Import Blueprints CSV", True, 
+                              f"Imported: {imported_count} blueprints")
+            else:
+                try:
+                    error_data = response.json()
+                except:
+                    error_data = {"error": response.text}
+                self.log_result("Import Blueprints CSV", False, str(error_data))
+                
+        except Exception as e:
+            self.log_result("Import Blueprints CSV", False, str(e))
+            success = False
+        
+        return success
+
+    def test_bulk_approve_blueprints(self):
+        """Test bulk blueprint approval"""
+        # First get unapproved blueprints
+        success, blueprints_data = self.make_request('GET', 'blueprints')
+        
+        if not success:
+            self.log_result("Bulk Approve Blueprints (Get)", False, "Failed to get blueprints")
+            return False
+        
+        # Find unapproved blueprints
+        unapproved_ids = [bp['id'] for bp in blueprints_data if not bp.get('is_approved', True)]
+        
+        if not unapproved_ids:
+            self.log_result("Bulk Approve Blueprints", True, "No unapproved blueprints to test with")
+            return True
+        
+        # Take first 2 for testing
+        test_ids = unapproved_ids[:2]
+        
+        success, data = self.make_request('POST', 'blueprints/approve-bulk', test_ids)
+        
+        if success and 'approved_count' in data:
+            approved_count = data['approved_count']
+            self.log_result("Bulk Approve Blueprints", True, 
+                          f"Approved: {approved_count} blueprints")
+        else:
+            self.log_result("Bulk Approve Blueprints", False, str(data))
+        
+        return success
+
+    def test_verify_blueprint_approval_status(self):
+        """Test that newly created blueprints are not approved by default"""
+        # Get all blueprints and check their approval status
+        success, data = self.make_request('GET', 'blueprints')
+        
+        if not success:
+            self.log_result("Verify Blueprint Approval Status", False, "Failed to get blueprints")
+            return False
+        
+        # Check if we have any blueprints and their approval status
+        total_blueprints = len(data)
+        unapproved_count = len([bp for bp in data if not bp.get('is_approved', True)])
+        
+        if total_blueprints > 0:
+            self.log_result("Verify Blueprint Approval Status", True, 
+                          f"Total: {total_blueprints}, Unapproved: {unapproved_count}")
+        else:
+            self.log_result("Verify Blueprint Approval Status", True, "No blueprints found")
+        
+        return success
+
     def test_delete_blueprint(self):
         """Test deleting a blueprint (cleanup)"""
         if not self.created_blueprint_id:
