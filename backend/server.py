@@ -679,6 +679,126 @@ class WhatsAppSendRequest(BaseModel):
     to_phone: str
     message: str
 
+# ========================
+# WHATSAPP CLOUD API MODELS (Separated)
+# ========================
+
+class WACloudMessageStatus(str, Enum):
+    PENDING = "pending"
+    SENT = "sent"
+    DELIVERED = "delivered"
+    READ = "read"
+    FAILED = "failed"
+
+class WACloudMessage(BaseModel):
+    """WhatsApp Cloud API message - completely separate from Web messages"""
+    model_config = ConfigDict(extra="ignore")
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    tenant_id: str
+    contact_id: str
+    phone_number: str  # Recipient phone
+    connected_number: str  # Sender's WhatsApp Business number
+    direction: str  # "outbound" or "inbound"
+    content: str
+    message_type: str = "text"  # text, template, image, etc.
+    wa_message_id: Optional[str] = None  # Meta's message ID
+    status: WACloudMessageStatus = WACloudMessageStatus.PENDING
+    error_message: Optional[str] = None
+    template_name: Optional[str] = None  # For template messages
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    sent_at: Optional[datetime] = None
+    delivered_at: Optional[datetime] = None
+    read_at: Optional[datetime] = None
+
+class WACloudContact(BaseModel):
+    """WhatsApp Cloud API contact - separate from Web contacts"""
+    model_config = ConfigDict(extra="ignore")
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    tenant_id: str
+    connected_number: str  # Which business number they're connected to
+    phone_number: str  # Contact's phone
+    name: Optional[str] = None
+    last_message_at: Optional[datetime] = None
+    last_message_preview: Optional[str] = None
+    unread_count: int = 0
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+class WACloudSendRequest(BaseModel):
+    to_phone: str
+    message: str
+    template_name: Optional[str] = None  # For first contact (requires template)
+
+class WACloudInboxResponse(BaseModel):
+    contacts: List[Dict[str, Any]]
+    connected_number: str
+    integration_type: str = "cloud_api"
+
+# ========================
+# WHATSAPP WEB MODELS (For Phase 2 - Baileys)
+# ========================
+
+class WAWebSessionStatus(str, Enum):
+    DISCONNECTED = "disconnected"
+    QR_PENDING = "qr_pending"
+    CONNECTED = "connected"
+    EXPIRED = "expired"
+
+class WAWebSession(BaseModel):
+    """WhatsApp Web session data"""
+    model_config = ConfigDict(extra="ignore")
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    tenant_id: str
+    phone_number: str  # Connected phone number
+    status: WAWebSessionStatus = WAWebSessionStatus.DISCONNECTED
+    qr_code: Optional[str] = None  # Base64 QR code when pending
+    last_connected_at: Optional[datetime] = None
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    risk_accepted: bool = False
+    risk_accepted_at: Optional[datetime] = None
+    risk_accepted_by: Optional[str] = None
+
+class WAWebMessage(BaseModel):
+    """WhatsApp Web message - completely separate from Cloud API messages"""
+    model_config = ConfigDict(extra="ignore")
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    tenant_id: str
+    contact_id: str
+    phone_number: str  # Recipient phone
+    connected_number: str  # Sender's WhatsApp Web number
+    direction: str  # "outbound" or "inbound"
+    content: str
+    message_type: str = "text"
+    wa_message_id: Optional[str] = None  # Baileys message ID
+    status: WACloudMessageStatus = WACloudMessageStatus.PENDING
+    error_message: Optional[str] = None
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    sent_at: Optional[datetime] = None
+    delivered_at: Optional[datetime] = None
+    read_at: Optional[datetime] = None
+
+class WAWebContact(BaseModel):
+    """WhatsApp Web contact - separate from Cloud API contacts"""
+    model_config = ConfigDict(extra="ignore")
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    tenant_id: str
+    connected_number: str
+    phone_number: str
+    name: Optional[str] = None
+    last_message_at: Optional[datetime] = None
+    last_message_preview: Optional[str] = None
+    unread_count: int = 0
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+class WAWebSendRequest(BaseModel):
+    to_phone: str
+    message: str
+
+class WAWebInboxResponse(BaseModel):
+    contacts: List[Dict[str, Any]]
+    connected_number: str
+    integration_type: str = "web"
+    session_status: WAWebSessionStatus
+
 class BatchAIBlueprintRequest(BaseModel):
     channels: List[Channel] = [Channel.EMAIL]
     intents: List[Intent] = [Intent.AWARENESS]
