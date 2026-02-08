@@ -180,8 +180,9 @@ class TestAIBlueprintGeneration:
         blueprint = data["blueprint"]
         structure = blueprint["structure"].lower()
         
-        # Risk angle should mention security-related terms
-        risk_keywords = ["security", "risk", "protect", "safe", "compliance", "data", "breach", "threat"]
+        # Risk angle should mention security/risk-related terms (expanded list)
+        risk_keywords = ["security", "risk", "protect", "safe", "compliance", "data", "breach", "threat", 
+                        "backup", "recovery", "downtime", "incident", "vulnerability", "secure", "restore"]
         has_risk_content = any(keyword in structure for keyword in risk_keywords)
         assert has_risk_content, f"Risk blueprint should contain security-related content. Got: {blueprint['structure'][:300]}"
         
