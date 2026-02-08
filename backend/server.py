@@ -2559,10 +2559,22 @@ async def health_check():
 # Include the router
 app.include_router(api_router)
 
+# CORS Configuration with WarmReach IP
+CORS_ORIGINS = os.environ.get('CORS_ORIGINS', '*').split(',')
+# Add WarmReach production IP to allowed origins
+WARMREACH_ORIGINS = [
+    "http://65.20.80.78",
+    "https://65.20.80.78",
+    "http://65.20.80.78:3000",
+    "http://65.20.80.78:8001",
+]
+# Combine origins
+all_origins = list(set(CORS_ORIGINS + WARMREACH_ORIGINS))
+
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,
-    allow_origins=os.environ.get('CORS_ORIGINS', '*').split(','),
+    allow_origins=all_origins if '*' not in all_origins else ['*'],
     allow_methods=["*"],
     allow_headers=["*"],
 )
