@@ -10,23 +10,22 @@
  * WARNING: WhatsApp Web automation is against WhatsApp ToS and carries ban risk.
  */
 
-import express from 'express';
-import cors from 'cors';
-import { createClient } from 'redis';
-import pkg from '@whiskeysockets/baileys';
+const express = require('express');
+const cors = require('cors');
+const { createClient } = require('redis');
 const { 
   default: makeWASocket, 
   DisconnectReason, 
   useMultiFileAuthState,
   makeInMemoryStore,
   fetchLatestBaileysVersion
-} = pkg;
-import pino from 'pino';
-import QRCode from 'qrcode';
-import { v4 as uuidv4 } from 'uuid';
-import dotenv from 'dotenv';
-import fs from 'fs';
-import path from 'path';
+} = require('@whiskeysockets/baileys');
+const pino = require('pino');
+const QRCode = require('qrcode');
+const { v4: uuidv4 } = require('uuid');
+require('dotenv').config();
+const fs = require('fs');
+const path = require('path');
 
 dotenv.config();
 
