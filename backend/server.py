@@ -2612,50 +2612,55 @@ async def receive_whatsapp_webhook(
         return {"status": "error", "message": str(e)}
 
 async def process_message_status(status: Dict):
-    """Process message status updates from WhatsApp"""
+    """Process message status updates from WhatsApp Cloud API"""
     message_id = status.get("id")
     status_type = status.get("status")  # sent, delivered, read, failed
     timestamp = status.get("timestamp")
     recipient_id = status.get("recipient_id")
     
-    logger.info(f"Message status update: {message_id} -> {status_type}")
+    logger.info(f"Cloud API message status update: {message_id} -> {status_type}")
     
-    # Map WhatsApp status to our MessageStatus
+    # Map WhatsApp status to WACloudMessageStatus
     status_mapping = {
-        "sent": MessageStatus.SENT,
-        "delivered": MessageStatus.DELIVERED,
-        "read": MessageStatus.DELIVERED,  # We don't have a "read" status
-        "failed": MessageStatus.FAILED
+        "sent": WACloudMessageStatus.SENT,
+        "delivered": WACloudMessageStatus.DELIVERED,
+        "read": WACloudMessageStatus.READ,
+        "failed": WACloudMessageStatus.FAILED
     }
     
     new_status = status_mapping.get(status_type)
     if new_status:
-        # Update message in database
+        # Update message in wa_cloud_messages
         update_fields = {"status": new_status}
         if status_type == "sent":
             update_fields["sent_at"] = datetime.now(timezone.utc).isoformat()
         elif status_type == "delivered":
             update_fields["delivered_at"] = datetime.now(timezone.utc).isoformat()
+        elif status_type == "read":
+            update_fields["read_at"] = datetime.now(timezone.utc).isoformat()
         elif status_type == "failed":
             errors = status.get("errors", [])
             if errors:
                 update_fields["error_message"] = errors[0].get("message", "Unknown error")
         
-        # Find and update the message by WhatsApp message ID
-        # Note: We'd need to store the WhatsApp message ID when sending
-        await db.messages.update_one(
-            {"whatsapp_message_id": message_id},
+        # Update message by WhatsApp message ID in wa_cloud_messages
+        await db.wa_cloud_messages.update_one(
+            {"wa_message_id": message_id},
             {"$set": update_fields}
         )
 
 async def process_incoming_message(message: Dict, metadata: Dict):
-    """Process incoming WhatsApp messages (replies from contacts)"""
+    """Process incoming WhatsApp Cloud API messages (replies from contacts)"""
     from_number = message.get("from")  # Sender's phone number
     message_type = message.get("type")  # text, image, etc.
     timestamp = message.get("timestamp")
     wa_message_id = message.get("id")
     
-    logger.info(f"Incoming WhatsApp message from {from_number}: type={message_type}")
+    # Get the connected business number from metadata
+    display_phone_number = metadata.get("display_phone_number", "")
+    phone_number_id = metadata.get("phone_number_id", "")
+    
+    logger.info(f"Incoming Cloud API message from {from_number} to {display_phone_number}: type={message_type}")
     
     # Extract message content based on type
     content = ""
@@ -2669,46 +2674,88 @@ async def process_incoming_message(message: Dict, metadata: Dict):
             content = interactive["button_reply"].get("title", "")
         elif "list_reply" in interactive:
             content = interactive["list_reply"].get("title", "")
+    elif message_type == "image":
+        content = "[Image message]"
+    elif message_type == "audio":
+        content = "[Audio message]"
+    elif message_type == "document":
+        content = "[Document message]"
+    elif message_type == "video":
+        content = "[Video message]"
     else:
         content = f"[{message_type} message]"
     
-    # Find the contact by phone number
-    # Note: Phone numbers from WhatsApp don't include '+'
-    contact = await db.contacts.find_one(
-        {"phone": {"$regex": from_number}},
+    # Find tenant by phone_number_id in whatsapp_config
+    wa_config = await db.whatsapp_config.find_one(
+        {"phone_number_id": phone_number_id},
         {"_id": 0}
     )
     
-    if contact:
-        # Create a reply record
-        reply = Reply(
-            tenant_id=contact["tenant_id"],
-            contact_id=contact["id"],
-            message_id=wa_message_id,  # Use WhatsApp message ID as reference
-            channel=Channel.WHATSAPP,
-            content=content,
-            sentiment=None  # Can be classified later with AI
+    if not wa_config:
+        logger.warning(f"No WhatsApp config found for phone_number_id: {phone_number_id}")
+        return
+    
+    tenant_id = wa_config["tenant_id"]
+    connected_number = phone_number_id
+    
+    # Find or create contact in wa_cloud_contacts
+    contact = await db.wa_cloud_contacts.find_one(
+        {
+            "tenant_id": tenant_id,
+            "connected_number": connected_number,
+            "phone_number": from_number
+        },
+        {"_id": 0}
+    )
+    
+    if not contact:
+        # Create new contact
+        new_contact = WACloudContact(
+            tenant_id=tenant_id,
+            connected_number=connected_number,
+            phone_number=from_number,
+            last_message_at=datetime.now(timezone.utc),
+            last_message_preview=content[:50],
+            unread_count=1
         )
-        
-        reply_doc = reply.model_dump()
-        reply_doc['created_at'] = reply_doc['created_at'].isoformat()
-        
-        await db.replies.insert_one(reply_doc)
-        
-        # Update contact status to "replied"
-        await db.contacts.update_one(
-            {"id": contact["id"]},
+        contact_doc = new_contact.model_dump()
+        contact_doc['created_at'] = contact_doc['created_at'].isoformat()
+        contact_doc['last_message_at'] = contact_doc['last_message_at'].isoformat()
+        await db.wa_cloud_contacts.insert_one(contact_doc)
+        contact_id = new_contact.id
+        logger.info(f"Created new Cloud API contact for {from_number}")
+    else:
+        contact_id = contact["id"]
+        # Update contact
+        await db.wa_cloud_contacts.update_one(
+            {"id": contact_id},
             {
                 "$set": {
-                    "status": ContactStatus.REPLIED,
-                    "updated_at": datetime.now(timezone.utc).isoformat()
-                }
+                    "last_message_at": datetime.now(timezone.utc).isoformat(),
+                    "last_message_preview": content[:50]
+                },
+                "$inc": {"unread_count": 1}
             }
         )
-        
-        logger.info(f"Saved reply from contact {contact['id']}")
-    else:
-        logger.warning(f"No contact found for phone number: {from_number}")
+    
+    # Create inbound message in wa_cloud_messages
+    inbound_message = WACloudMessage(
+        tenant_id=tenant_id,
+        contact_id=contact_id,
+        phone_number=from_number,
+        connected_number=connected_number,
+        direction="inbound",
+        content=content,
+        message_type=message_type,
+        wa_message_id=wa_message_id,
+        status=WACloudMessageStatus.DELIVERED
+    )
+    
+    message_doc = inbound_message.model_dump()
+    message_doc['created_at'] = message_doc['created_at'].isoformat()
+    await db.wa_cloud_messages.insert_one(message_doc)
+    
+    logger.info(f"Saved inbound Cloud API message from {from_number}")
 
 # ========================
 # IP WHITELIST SETTINGS
