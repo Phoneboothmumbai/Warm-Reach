@@ -670,40 +670,191 @@ export const WhatsAppPage = () => {
                     </div>
                   ) : (
                     <ScrollArea className="h-[55vh]">
-                      <p className="text-sm text-muted-foreground p-4 text-center">
-                        WhatsApp Web inbox functionality coming soon
-                      </p>
+                      {/* Contact List for Web */}
+                      {webInbox.contacts?.length === 0 ? (
+                        <div className="p-4 text-center text-muted-foreground">
+                          <MessageCircle className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                          <p className="text-sm">No conversations yet</p>
+                          <p className="text-xs">Messages will appear here when received</p>
+                        </div>
+                      ) : (
+                        webInbox.contacts?.map((contact) => (
+                          <div
+                            key={contact.id}
+                            onClick={() => loadChat(contact, "web")}
+                            className={cn(
+                              "p-3 border-b cursor-pointer hover:bg-muted/50 transition-colors",
+                              selectedContact?.id === contact.id && selectedContact?.integration_type === "web" && "bg-muted"
+                            )}
+                            data-testid={`web-contact-${contact.id}`}
+                          >
+                            <div className="flex items-center gap-3">
+                              <div className="w-10 h-10 rounded-full bg-green-500/10 flex items-center justify-center">
+                                <User className="w-5 h-5 text-green-600" />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center justify-between">
+                                  <p className="font-medium truncate">
+                                    {contact.name || formatPhone(contact.phone_number)}
+                                  </p>
+                                  <span className="text-xs text-muted-foreground">
+                                    {formatTime(contact.last_message_at)}
+                                  </span>
+                                </div>
+                                <div className="flex items-center justify-between">
+                                  <p className="text-sm text-muted-foreground truncate">
+                                    {contact.last_message_preview || "No messages"}
+                                  </p>
+                                  {contact.unread_count > 0 && (
+                                    <Badge className="bg-green-500 text-white text-xs">
+                                      {contact.unread_count}
+                                    </Badge>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        ))
+                      )}
                     </ScrollArea>
                   )}
                 </CardContent>
               </Card>
 
-              {/* Chat Area Placeholder */}
+              {/* Chat Area for Web */}
               <Card className="card-surface lg:col-span-2">
-                <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
-                  <Smartphone className="w-16 h-16 mb-4 opacity-30" />
-                  <p className="text-lg font-medium">WhatsApp Web Chat</p>
-                  <p className="text-sm">Connect via QR code to start messaging</p>
-                  {webInbox.session_status === "connected" && (
-                    <Button
-                      variant="destructive"
-                      size="sm"
-                      className="mt-4"
-                      onClick={async () => {
-                        try {
-                          await authFetch(`${API}/wa/web/disconnect`, { method: "POST" });
-                          toast.success("Disconnected");
-                          fetchData();
-                        } catch (e) {
-                          toast.error("Failed to disconnect");
-                        }
-                      }}
-                      data-testid="disconnect-wa-web-btn"
-                    >
-                      Disconnect Session
-                    </Button>
-                  )}
-                </div>
+                {!selectedContact || selectedContact.integration_type !== "web" ? (
+                  <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
+                    <Smartphone className="w-16 h-16 mb-4 opacity-30" />
+                    <p className="text-lg font-medium">WhatsApp Web Chat</p>
+                    <p className="text-sm">Select a conversation to view messages</p>
+                    {webInbox.session_status === "connected" && (
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        className="mt-4"
+                        onClick={async () => {
+                          try {
+                            await authFetch(`${API}/wa/web/disconnect`, { method: "POST" });
+                            toast.success("Disconnected");
+                            fetchData();
+                          } catch (e) {
+                            toast.error("Failed to disconnect");
+                          }
+                        }}
+                        data-testid="disconnect-wa-web-btn"
+                      >
+                        Disconnect Session
+                      </Button>
+                    )}
+                  </div>
+                ) : (
+                  <div className="flex flex-col h-full">
+                    {/* Chat Header */}
+                    <div className="p-4 border-b flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-green-500/10 flex items-center justify-center">
+                          <User className="w-5 h-5 text-green-600" />
+                        </div>
+                        <div>
+                          <p className="font-medium">
+                            {selectedContact.name || formatPhone(selectedContact.phone_number)}
+                          </p>
+                          <p className="text-xs text-muted-foreground font-mono">
+                            {selectedContact.phone_number}
+                          </p>
+                        </div>
+                      </div>
+                      <Badge variant="outline" className="text-xs border-yellow-500 text-yellow-600">
+                        <Smartphone className="w-3 h-3 mr-1" />
+                        Web
+                      </Badge>
+                    </div>
+
+                    {/* Messages */}
+                    <ScrollArea className="flex-1 p-4">
+                      {loadingChat ? (
+                        <div className="flex items-center justify-center h-full">
+                          <Loader2 className="w-6 h-6 animate-spin" />
+                        </div>
+                      ) : chatMessages.length === 0 ? (
+                        <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
+                          <p className="text-sm">No messages yet</p>
+                        </div>
+                      ) : (
+                        <div className="space-y-3">
+                          {chatMessages.map((msg) => (
+                            <div
+                              key={msg.id}
+                              className={cn(
+                                "flex",
+                                msg.direction === "outbound" ? "justify-end" : "justify-start"
+                              )}
+                            >
+                              <div
+                                className={cn(
+                                  "max-w-[70%] rounded-lg px-3 py-2",
+                                  msg.direction === "outbound"
+                                    ? "bg-green-600 text-white"
+                                    : "bg-muted"
+                                )}
+                              >
+                                <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
+                                <div className={cn(
+                                  "flex items-center justify-end gap-1 mt-1",
+                                  msg.direction === "outbound" ? "text-green-100" : "text-muted-foreground"
+                                )}>
+                                  <span className="text-[10px]">
+                                    {formatTime(msg.created_at)}
+                                  </span>
+                                  {msg.direction === "outbound" && (
+                                    <MessageStatusIcon status={msg.status} />
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                          <div ref={messagesEndRef} />
+                        </div>
+                      )}
+                    </ScrollArea>
+
+                    {/* Message Input */}
+                    <div className="p-4 border-t">
+                      <div className="flex gap-2">
+                        <Textarea
+                          placeholder="Type a message..."
+                          value={newMessage}
+                          onChange={(e) => setNewMessage(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' && !e.shiftKey) {
+                              e.preventDefault();
+                              sendMessage();
+                            }
+                          }}
+                          className="min-h-[44px] max-h-[120px] resize-none"
+                          rows={1}
+                          data-testid="web-message-input"
+                        />
+                        <Button
+                          onClick={sendMessage}
+                          disabled={sending || !newMessage.trim()}
+                          className="bg-green-600 hover:bg-green-700"
+                          data-testid="web-send-message-btn"
+                        >
+                          {sending ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <Send className="w-4 h-4" />
+                          )}
+                        </Button>
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-2">
+                        ⚠️ WhatsApp Web - Use carefully (ban risk)
+                      </p>
+                    </div>
+                  </div>
+                )}
               </Card>
             </div>
           )}
