@@ -232,37 +232,61 @@ async def generate_ai_blueprint(channel: str, intent: str, angle: str, tone: str
 - Thought-leadership style"""
         }
         
+        # Business context for IT Solutions & NeoStore
+        business_context = """
+ABOUT OUR COMPANY (Use this context for all blueprints):
+We are an end-to-end IT solutions company. Our services include:
+- Proactive IT support and maintenance
+- Device procurement and lifecycle management (Apple products via NeoStore)
+- Security, backups, and infrastructure management
+- Remote support, asset tracking, and monitoring
+- Corporate IT setups, repairs, and troubleshooting
+
+NeoStore (Mumbai) specializes in Apple products, enterprise support, and hardware solutions.
+
+KEY VALUE PROPS TO HIGHLIGHT:
+- Preventive IT reduces downtime and hidden costs
+- Long-term IT partner, not just a vendor
+- Quietly reliable, responsive, and accountable
+- Real technical expertise
+
+NEVER MENTION:
+- Pricing, costs, or specific numbers
+- Competitor names
+- Generic sales language
+"""
+        
         intent_desc = {
-            "awareness": "Introduce yourself and create initial awareness",
-            "conversation": "Start a meaningful dialogue and engagement",
-            "follow_up": "Continue from previous interaction"
+            "awareness": "Introduce our IT services and create initial awareness about proactive IT support",
+            "conversation": "Start a dialogue about their IT challenges and how we can help",
+            "follow_up": "Continue from previous interaction about IT services"
         }
         
         angle_desc = {
-            "cost": "Focus on cost savings and ROI",
-            "risk": "Highlight risk mitigation and security",
-            "downtime": "Address reliability and uptime concerns",
-            "growth": "Emphasize growth potential and scaling",
-            "compliance": "Focus on regulatory and compliance needs"
+            "cost": "Focus on reducing hidden IT costs and operational inefficiencies",
+            "risk": "Highlight IT security, data protection, and risk mitigation",
+            "downtime": "Address system reliability, uptime, and business continuity",
+            "growth": "Emphasize scalable IT infrastructure for growing businesses",
+            "compliance": "Focus on IT compliance, security standards, and best practices"
         }
         
         tone_desc = {
-            "calm_authority": "Professional, confident, and knowledgeable",
-            "observational": "Insightful, analytical, and thoughtful",
-            "direct": "Straightforward, clear, and action-oriented"
+            "calm_authority": "Professional, confident IT expertise without being pushy",
+            "observational": "Insightful observations about IT challenges and solutions",
+            "direct": "Straightforward, clear communication about IT needs"
         }
         
         # Variation seed and creative directions
         variation_seed = random.randint(1000, 9999)
         
         creative_hooks = [
-            "Start with a thought-provoking question about their industry",
-            "Open with a surprising statistic or trend",
-            "Begin by acknowledging a common challenge in their role",
-            "Start with a brief story or analogy",
-            "Open with a bold observation about their market",
-            "Begin by referencing a recent industry shift",
-            "Start with genuine curiosity about their approach"
+            "Start with a question about their current IT support experience",
+            "Open with a common IT challenge for growing businesses",
+            "Begin by referencing device management or security concerns",
+            "Start with an observation about reactive vs proactive IT",
+            "Open with a question about their backup and recovery approach",
+            "Begin by acknowledging the IT burden on business operations",
+            "Start with curiosity about how they handle IT issues currently"
         ]
         selected_hook = random.choice(creative_hooks)
         
