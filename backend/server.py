@@ -2758,6 +2758,570 @@ async def process_incoming_message(message: Dict, metadata: Dict):
     logger.info(f"Saved inbound Cloud API message from {from_number}")
 
 # ========================
+# WHATSAPP WEB ROUTES (Phase 2)
+# ========================
+
+WA_WEB_SERVICE_URL = os.environ.get("WA_WEB_SERVICE_URL", "http://localhost:3001")
+
+class WAWebStartRequest(BaseModel):
+    risk_accepted: bool = False
+
+class WAWebWebhookPayload(BaseModel):
+    tenant_id: str
+    event: str
+    data: Dict[str, Any]
+    timestamp: Optional[str] = None
+
+@api_router.get("/wa/web/status")
+async def get_wa_web_status(current_user: Dict = Depends(get_current_user)):
+    """Get WhatsApp Web session status and QR code if pending."""
+    # Check if tenant has accepted risk
+    tenant_config = await db.tenant_config.find_one(
+        {"tenant_id": current_user["tenant_id"]},
+        {"_id": 0}
+    )
+    
+    wa_web_enabled = tenant_config.get("wa_web_enabled", False) if tenant_config else False
+    risk_accepted = tenant_config.get("wa_web_risk_accepted", False) if tenant_config else False
+    
+    if not wa_web_enabled:
+        return {
+            "enabled": False,
+            "status": "disabled",
+            "message": "WhatsApp Web integration is disabled for this tenant"
+        }
+    
+    # Get session from wa_web_sessions collection
+    session = await db.wa_web_sessions.find_one(
+        {"tenant_id": current_user["tenant_id"]},
+        {"_id": 0}
+    )
+    
+    if not session:
+        return {
+            "enabled": True,
+            "status": "disconnected",
+            "phone_number": None,
+            "qr_code": None,
+            "risk_accepted": risk_accepted
+        }
+    
+    return {
+        "enabled": True,
+        "status": session.get("status", "disconnected"),
+        "phone_number": session.get("phone_number"),
+        "qr_code": session.get("qr_code") if session.get("status") == "qr_pending" else None,
+        "connected_at": session.get("connected_at"),
+        "risk_accepted": risk_accepted
+    }
+
+@api_router.post("/wa/web/enable")
+async def enable_wa_web(current_user: Dict = Depends(get_current_user)):
+    """Enable WhatsApp Web integration for tenant (owner only)."""
+    if current_user["role"] != UserRole.OWNER:
+        raise HTTPException(status_code=403, detail="Only owner can enable WhatsApp Web")
+    
+    await db.tenant_config.update_one(
+        {"tenant_id": current_user["tenant_id"]},
+        {
+            "$set": {
+                "wa_web_enabled": True,
+                "wa_web_enabled_at": datetime.now(timezone.utc).isoformat(),
+                "wa_web_enabled_by": current_user["id"]
+            }
+        },
+        upsert=True
+    )
+    
+    await log_audit(
+        current_user["tenant_id"],
+        current_user["id"],
+        "enable",
+        "wa_web",
+        "settings"
+    )
+    
+    return {"message": "WhatsApp Web integration enabled"}
+
+@api_router.post("/wa/web/disable")
+async def disable_wa_web(current_user: Dict = Depends(get_current_user)):
+    """Disable WhatsApp Web integration for tenant (owner only)."""
+    if current_user["role"] != UserRole.OWNER:
+        raise HTTPException(status_code=403, detail="Only owner can disable WhatsApp Web")
+    
+    # Also disconnect any active session
+    try:
+        import httpx
+        async with httpx.AsyncClient() as client:
+            await client.post(
+                f"{WA_WEB_SERVICE_URL}/session/{current_user['tenant_id']}/disconnect",
+                timeout=10.0
+            )
+    except Exception as e:
+        logger.warning(f"Failed to disconnect WA Web session: {e}")
+    
+    await db.tenant_config.update_one(
+        {"tenant_id": current_user["tenant_id"]},
+        {
+            "$set": {
+                "wa_web_enabled": False,
+                "wa_web_risk_accepted": False
+            }
+        }
+    )
+    
+    # Clear session data
+    await db.wa_web_sessions.delete_one({"tenant_id": current_user["tenant_id"]})
+    
+    await log_audit(
+        current_user["tenant_id"],
+        current_user["id"],
+        "disable",
+        "wa_web",
+        "settings"
+    )
+    
+    return {"message": "WhatsApp Web integration disabled"}
+
+@api_router.post("/wa/web/start")
+async def start_wa_web_session(
+    request: WAWebStartRequest,
+    current_user: Dict = Depends(get_current_user)
+):
+    """Start WhatsApp Web QR login process."""
+    # Check if enabled
+    tenant_config = await db.tenant_config.find_one(
+        {"tenant_id": current_user["tenant_id"]},
+        {"_id": 0}
+    )
+    
+    if not tenant_config or not tenant_config.get("wa_web_enabled"):
+        raise HTTPException(status_code=400, detail="WhatsApp Web is not enabled for this tenant")
+    
+    if not request.risk_accepted:
+        raise HTTPException(
+            status_code=400, 
+            detail="You must accept the risk of account ban before using WhatsApp Web automation"
+        )
+    
+    # Save risk acceptance
+    await db.tenant_config.update_one(
+        {"tenant_id": current_user["tenant_id"]},
+        {
+            "$set": {
+                "wa_web_risk_accepted": True,
+                "wa_web_risk_accepted_at": datetime.now(timezone.utc).isoformat(),
+                "wa_web_risk_accepted_by": current_user["id"]
+            }
+        }
+    )
+    
+    # Call Node.js service to start session
+    import httpx
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                f"{WA_WEB_SERVICE_URL}/session/{current_user['tenant_id']}/start",
+                json={"risk_accepted": True},
+                timeout=30.0
+            )
+            
+            if response.status_code != 200:
+                error_data = response.json()
+                raise HTTPException(status_code=response.status_code, detail=error_data.get("error", "Failed to start session"))
+            
+            # Create initial session record
+            session = WAWebSession(
+                tenant_id=current_user["tenant_id"],
+                phone_number="",
+                status=WAWebSessionStatus.QR_PENDING,
+                risk_accepted=True,
+                risk_accepted_at=datetime.now(timezone.utc),
+                risk_accepted_by=current_user["id"]
+            )
+            
+            session_doc = session.model_dump()
+            for key in ['created_at', 'last_connected_at', 'risk_accepted_at']:
+                if session_doc.get(key):
+                    session_doc[key] = session_doc[key].isoformat() if isinstance(session_doc[key], datetime) else session_doc[key]
+            
+            await db.wa_web_sessions.update_one(
+                {"tenant_id": current_user["tenant_id"]},
+                {"$set": session_doc},
+                upsert=True
+            )
+            
+            return response.json()
+            
+    except httpx.RequestError as e:
+        logger.error(f"Failed to connect to WA Web service: {e}")
+        raise HTTPException(status_code=503, detail="WhatsApp Web service unavailable")
+
+@api_router.post("/wa/web/disconnect")
+async def disconnect_wa_web_session(current_user: Dict = Depends(get_current_user)):
+    """Disconnect WhatsApp Web session."""
+    import httpx
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                f"{WA_WEB_SERVICE_URL}/session/{current_user['tenant_id']}/disconnect",
+                timeout=10.0
+            )
+            
+            # Update session status
+            await db.wa_web_sessions.update_one(
+                {"tenant_id": current_user["tenant_id"]},
+                {"$set": {"status": WAWebSessionStatus.DISCONNECTED, "qr_code": None}}
+            )
+            
+            await log_audit(
+                current_user["tenant_id"],
+                current_user["id"],
+                "disconnect",
+                "wa_web",
+                "session"
+            )
+            
+            return {"status": "disconnected"}
+            
+    except httpx.RequestError as e:
+        logger.error(f"Failed to disconnect WA Web session: {e}")
+        raise HTTPException(status_code=503, detail="WhatsApp Web service unavailable")
+
+@api_router.post("/wa/web/send")
+async def send_wa_web_message(
+    request: WAWebSendRequest,
+    current_user: Dict = Depends(get_current_user)
+):
+    """Send a WhatsApp message via WhatsApp Web."""
+    # Check if enabled and connected
+    session = await db.wa_web_sessions.find_one(
+        {"tenant_id": current_user["tenant_id"]},
+        {"_id": 0}
+    )
+    
+    if not session or session.get("status") != "connected":
+        raise HTTPException(status_code=400, detail="WhatsApp Web is not connected")
+    
+    import httpx
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                f"{WA_WEB_SERVICE_URL}/session/{current_user['tenant_id']}/send",
+                json={"to_phone": request.to_phone, "message": request.message},
+                timeout=30.0
+            )
+            
+            result = response.json()
+            
+            if response.status_code != 200:
+                raise HTTPException(status_code=response.status_code, detail=result.get("error", "Failed to send message"))
+            
+            # Store message in wa_web_messages
+            to_phone = re.sub(r'[^\d]', '', request.to_phone)
+            connected_number = session.get("phone_number", "")
+            
+            # Find or create contact
+            contact = await db.wa_web_contacts.find_one(
+                {
+                    "tenant_id": current_user["tenant_id"],
+                    "connected_number": connected_number,
+                    "phone_number": to_phone
+                },
+                {"_id": 0}
+            )
+            
+            if not contact:
+                new_contact = WAWebContact(
+                    tenant_id=current_user["tenant_id"],
+                    connected_number=connected_number,
+                    phone_number=to_phone
+                )
+                contact_doc = new_contact.model_dump()
+                contact_doc['created_at'] = contact_doc['created_at'].isoformat()
+                await db.wa_web_contacts.insert_one(contact_doc)
+                contact_id = new_contact.id
+            else:
+                contact_id = contact["id"]
+            
+            # Create message record
+            message = WAWebMessage(
+                tenant_id=current_user["tenant_id"],
+                contact_id=contact_id,
+                phone_number=to_phone,
+                connected_number=connected_number,
+                direction="outbound",
+                content=request.message,
+                wa_message_id=result.get("message_id"),
+                status=WACloudMessageStatus.SENT,
+                sent_at=datetime.now(timezone.utc)
+            )
+            
+            message_doc = message.model_dump()
+            for key in ['created_at', 'sent_at', 'delivered_at', 'read_at']:
+                if message_doc.get(key):
+                    message_doc[key] = message_doc[key].isoformat() if isinstance(message_doc[key], datetime) else message_doc[key]
+            
+            await db.wa_web_messages.insert_one(message_doc)
+            
+            # Update contact
+            await db.wa_web_contacts.update_one(
+                {"id": contact_id},
+                {
+                    "$set": {
+                        "last_message_at": datetime.now(timezone.utc).isoformat(),
+                        "last_message_preview": request.message[:50]
+                    }
+                }
+            )
+            
+            return {
+                "success": True,
+                "message_id": message.id,
+                "wa_message_id": result.get("message_id"),
+                "rate_limit_remaining": result.get("rate_limit_remaining"),
+                "integration_type": "web"
+            }
+            
+    except httpx.RequestError as e:
+        logger.error(f"Failed to send WA Web message: {e}")
+        raise HTTPException(status_code=503, detail="WhatsApp Web service unavailable")
+
+@api_router.get("/wa/web/inbox")
+async def get_wa_web_inbox(
+    current_user: Dict = Depends(get_current_user),
+    skip: int = 0,
+    limit: int = 50
+):
+    """Get WhatsApp Web inbox - list of contacts with recent messages."""
+    session = await db.wa_web_sessions.find_one(
+        {"tenant_id": current_user["tenant_id"]},
+        {"_id": 0}
+    )
+    
+    if not session:
+        return {
+            "contacts": [],
+            "connected_number": "Not connected",
+            "integration_type": "web",
+            "session_status": "disconnected"
+        }
+    
+    connected_number = session.get("phone_number", "")
+    session_status = session.get("status", "disconnected")
+    
+    # Get contacts
+    contacts = await db.wa_web_contacts.find(
+        {
+            "tenant_id": current_user["tenant_id"],
+            "connected_number": connected_number
+        },
+        {"_id": 0}
+    ).sort("last_message_at", -1).skip(skip).limit(limit).to_list(limit)
+    
+    return {
+        "contacts": contacts,
+        "connected_number": connected_number,
+        "integration_type": "web",
+        "session_status": session_status
+    }
+
+@api_router.get("/wa/web/chat/{contact_id}")
+async def get_wa_web_chat(
+    contact_id: str,
+    current_user: Dict = Depends(get_current_user),
+    skip: int = 0,
+    limit: int = 100
+):
+    """Get chat thread for a specific WhatsApp Web contact."""
+    contact = await db.wa_web_contacts.find_one(
+        {"id": contact_id, "tenant_id": current_user["tenant_id"]},
+        {"_id": 0}
+    )
+    
+    if not contact:
+        raise HTTPException(status_code=404, detail="Contact not found")
+    
+    # Get messages
+    messages = await db.wa_web_messages.find(
+        {
+            "tenant_id": current_user["tenant_id"],
+            "contact_id": contact_id
+        },
+        {"_id": 0}
+    ).sort("created_at", 1).skip(skip).limit(limit).to_list(limit)
+    
+    # Mark as read and reset unread count
+    await db.wa_web_messages.update_many(
+        {
+            "contact_id": contact_id,
+            "direction": "inbound",
+            "status": {"$ne": WACloudMessageStatus.READ}
+        },
+        {"$set": {"status": WACloudMessageStatus.READ, "read_at": datetime.now(timezone.utc).isoformat()}}
+    )
+    
+    await db.wa_web_contacts.update_one(
+        {"id": contact_id},
+        {"$set": {"unread_count": 0}}
+    )
+    
+    return {
+        "contact": contact,
+        "messages": messages,
+        "integration_type": "web"
+    }
+
+@api_router.post("/wa/web/webhook")
+async def wa_web_webhook(payload: WAWebWebhookPayload):
+    """
+    Internal webhook endpoint for WhatsApp Web service to notify of events.
+    This is called by the Node.js Baileys service.
+    """
+    tenant_id = payload.tenant_id
+    event = payload.event
+    data = payload.data
+    
+    logger.info(f"WA Web webhook: {event} for tenant {tenant_id}")
+    
+    if event == "qr_generated":
+        # Update session with QR code
+        await db.wa_web_sessions.update_one(
+            {"tenant_id": tenant_id},
+            {
+                "$set": {
+                    "status": WAWebSessionStatus.QR_PENDING,
+                    "qr_code": data.get("qr_code"),
+                    "updated_at": datetime.now(timezone.utc).isoformat()
+                }
+            }
+        )
+    
+    elif event == "connected":
+        # Update session as connected
+        await db.wa_web_sessions.update_one(
+            {"tenant_id": tenant_id},
+            {
+                "$set": {
+                    "status": WAWebSessionStatus.CONNECTED,
+                    "phone_number": data.get("phone_number"),
+                    "qr_code": None,
+                    "last_connected_at": datetime.now(timezone.utc).isoformat(),
+                    "updated_at": datetime.now(timezone.utc).isoformat()
+                }
+            }
+        )
+    
+    elif event == "disconnected":
+        await db.wa_web_sessions.update_one(
+            {"tenant_id": tenant_id},
+            {
+                "$set": {
+                    "status": WAWebSessionStatus.DISCONNECTED,
+                    "qr_code": None,
+                    "updated_at": datetime.now(timezone.utc).isoformat()
+                }
+            }
+        )
+    
+    elif event == "message_received":
+        # Process incoming message
+        from_number = data.get("from", "")
+        content = data.get("content", "")
+        wa_message_id = data.get("message_id")
+        
+        # Get session to find connected number
+        session = await db.wa_web_sessions.find_one(
+            {"tenant_id": tenant_id},
+            {"_id": 0}
+        )
+        
+        if not session:
+            logger.warning(f"No session found for incoming WA Web message, tenant: {tenant_id}")
+            return {"status": "ok"}
+        
+        connected_number = session.get("phone_number", "")
+        
+        # Find or create contact
+        contact = await db.wa_web_contacts.find_one(
+            {
+                "tenant_id": tenant_id,
+                "connected_number": connected_number,
+                "phone_number": from_number
+            },
+            {"_id": 0}
+        )
+        
+        if not contact:
+            new_contact = WAWebContact(
+                tenant_id=tenant_id,
+                connected_number=connected_number,
+                phone_number=from_number,
+                last_message_at=datetime.now(timezone.utc),
+                last_message_preview=content[:50],
+                unread_count=1
+            )
+            contact_doc = new_contact.model_dump()
+            contact_doc['created_at'] = contact_doc['created_at'].isoformat()
+            contact_doc['last_message_at'] = contact_doc['last_message_at'].isoformat()
+            await db.wa_web_contacts.insert_one(contact_doc)
+            contact_id = new_contact.id
+        else:
+            contact_id = contact["id"]
+            await db.wa_web_contacts.update_one(
+                {"id": contact_id},
+                {
+                    "$set": {
+                        "last_message_at": datetime.now(timezone.utc).isoformat(),
+                        "last_message_preview": content[:50]
+                    },
+                    "$inc": {"unread_count": 1}
+                }
+            )
+        
+        # Create message
+        message = WAWebMessage(
+            tenant_id=tenant_id,
+            contact_id=contact_id,
+            phone_number=from_number,
+            connected_number=connected_number,
+            direction="inbound",
+            content=content,
+            wa_message_id=wa_message_id,
+            status=WACloudMessageStatus.DELIVERED
+        )
+        
+        message_doc = message.model_dump()
+        message_doc['created_at'] = message_doc['created_at'].isoformat()
+        await db.wa_web_messages.insert_one(message_doc)
+    
+    elif event == "message_status":
+        # Update message status
+        wa_message_id = data.get("message_id")
+        status = data.get("status")
+        
+        status_mapping = {
+            "sent": WACloudMessageStatus.SENT,
+            "delivered": WACloudMessageStatus.DELIVERED,
+            "read": WACloudMessageStatus.READ
+        }
+        
+        new_status = status_mapping.get(status)
+        if new_status and wa_message_id:
+            update_fields = {"status": new_status}
+            if status == "delivered":
+                update_fields["delivered_at"] = datetime.now(timezone.utc).isoformat()
+            elif status == "read":
+                update_fields["read_at"] = datetime.now(timezone.utc).isoformat()
+            
+            await db.wa_web_messages.update_one(
+                {"wa_message_id": wa_message_id},
+                {"$set": update_fields}
+            )
+    
+    return {"status": "ok"}
+
+# ========================
 # IP WHITELIST SETTINGS
 # ========================
 
