@@ -13,12 +13,14 @@
 import express from 'express';
 import cors from 'cors';
 import { createClient } from 'redis';
-import makeWASocket, { 
+import pkg from '@whiskeysockets/baileys';
+const { 
+  default: makeWASocket, 
   DisconnectReason, 
   useMultiFileAuthState,
   makeInMemoryStore,
   fetchLatestBaileysVersion
-} from '@whiskeysockets/baileys';
+} = pkg;
 import pino from 'pino';
 import QRCode from 'qrcode';
 import { v4 as uuidv4 } from 'uuid';
