@@ -62,6 +62,35 @@ async def generate_ai_message(contact: Dict, blueprint: Dict, previous_messages:
         import random
         import time
         
+        # Business context - IT Solutions & NeoStore
+        business_context = """
+ABOUT OUR COMPANY:
+We are an end-to-end IT solutions company focused on keeping businesses running smoothly, securely, and without disruption. Our core services include:
+- Proactive IT support and maintenance
+- Device procurement and lifecycle management (especially Apple via NeoStore)
+- Security, backups, and infrastructure management
+- Structured processes with clear SLAs
+- Remote support, asset tracking, and monitoring
+
+NeoStore (our retail/enterprise arm in Mumbai) specializes in:
+- Apple products and accessories
+- Corporate IT setups
+- Repairs, maintenance, and troubleshooting
+- Hardware, networking, and security solutions
+
+VALUE PROPOSITION:
+- Preventive IT that reduces downtime and hidden costs
+- Long-term IT partner, not just a vendor
+- Quietly reliable, responsive, and accountable
+- Real technical expertise, not just sales
+
+STRICT RULES:
+- NEVER mention pricing, costs, or specific numbers
+- NEVER mention competitor names
+- Focus on reducing downtime, operational risk, and business continuity
+- Position as a trusted IT partner, not a vendor
+"""
+        
         # Build context about the contact
         contact_name = f"{contact.get('first_name', '')} {contact.get('last_name', '')}".strip()
         company = contact.get('company_name', '') or 'their company'
