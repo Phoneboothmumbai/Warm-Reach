@@ -84,6 +84,7 @@ export const WhatsAppPage = () => {
   // Web state (Phase 2)
   const [webInbox, setWebInbox] = useState({ contacts: [], connected_number: "", session_status: "disconnected" });
   const [webEnabled, setWebEnabled] = useState(false);
+  const [webStatus, setWebStatus] = useState({ status: "disconnected", qr_code: null });
   
   // Chat state
   const [selectedContact, setSelectedContact] = useState(null);
