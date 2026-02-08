@@ -222,6 +222,60 @@ export const SettingsPage = () => {
     }
   };
 
+  const handleAddIp = async () => {
+    if (!newIpAddress.trim()) {
+      toast.error("Please enter an IP address");
+      return;
+    }
+
+    // Basic IP validation
+    const ipRegex = /^(\d{1,3}\.){3}\d{1,3}$/;
+    if (!ipRegex.test(newIpAddress.trim())) {
+      toast.error("Invalid IP address format");
+      return;
+    }
+
+    setSavingIp(true);
+    try {
+      const response = await authFetch(`${API}/settings/ip-whitelist?ip_address=${encodeURIComponent(newIpAddress.trim())}`, {
+        method: "POST"
+      });
+
+      if (response.ok) {
+        toast.success(`IP ${newIpAddress} added to whitelist`);
+        setNewIpAddress("");
+        fetchSettings();
+      } else {
+        const error = await response.json();
+        toast.error(error.detail || "Failed to add IP");
+      }
+    } catch (error) {
+      toast.error("Failed to add IP");
+    } finally {
+      setSavingIp(false);
+    }
+  };
+
+  const handleRemoveIp = async (ip) => {
+    if (!confirm(`Remove ${ip} from whitelist?`)) return;
+
+    try {
+      const response = await authFetch(`${API}/settings/ip-whitelist/${encodeURIComponent(ip)}`, {
+        method: "DELETE"
+      });
+
+      if (response.ok) {
+        toast.success(`IP ${ip} removed from whitelist`);
+        fetchSettings();
+      } else {
+        const error = await response.json();
+        toast.error(error.detail || "Failed to remove IP");
+      }
+    } catch (error) {
+      toast.error("Failed to remove IP");
+    }
+  };
+
   const roleColors = {
     owner: "bg-primary/15 text-primary border-primary/20",
     admin: "bg-secondary/15 text-secondary border-secondary/20",
