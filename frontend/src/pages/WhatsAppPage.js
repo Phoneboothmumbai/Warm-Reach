@@ -110,9 +110,11 @@ export const WhatsAppPage = () => {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [configRes, cloudRes] = await Promise.all([
+      const [configRes, cloudRes, webStatusRes, webInboxRes] = await Promise.all([
         authFetch(`${API}/settings/whatsapp`),
-        authFetch(`${API}/wa/cloud/inbox`)
+        authFetch(`${API}/wa/cloud/inbox`),
+        authFetch(`${API}/wa/web/status`),
+        authFetch(`${API}/wa/web/inbox`)
       ]);
 
       if (configRes.ok) {
@@ -123,6 +125,16 @@ export const WhatsAppPage = () => {
       if (cloudRes.ok) {
         const data = await cloudRes.json();
         setCloudInbox(data);
+      }
+
+      if (webStatusRes.ok) {
+        const webStatus = await webStatusRes.json();
+        setWebEnabled(webStatus.enabled || false);
+      }
+
+      if (webInboxRes.ok) {
+        const webData = await webInboxRes.json();
+        setWebInbox(webData);
       }
     } catch (error) {
       toast.error("Failed to load WhatsApp data");
