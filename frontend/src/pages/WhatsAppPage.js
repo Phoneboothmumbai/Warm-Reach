@@ -611,7 +611,31 @@ export const WhatsAppPage = () => {
                   </div>
                 </CardHeader>
                 <CardContent>
-                  {webInbox.session_status !== "connected" ? (
+                  {webStatus.status === "qr_pending" && webStatus.qr_code ? (
+                    <div className="text-center py-4">
+                      <p className="text-sm font-medium mb-4">Scan this QR code with WhatsApp</p>
+                      <div className="bg-white p-4 rounded-lg inline-block">
+                        <img 
+                          src={webStatus.qr_code} 
+                          alt="WhatsApp QR Code" 
+                          className="w-64 h-64"
+                          data-testid="wa-web-qr-code"
+                        />
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-4">
+                        Open WhatsApp on your phone → Settings → Linked Devices → Link a Device
+                      </p>
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        className="mt-4"
+                        onClick={fetchData}
+                      >
+                        <RefreshCw className="w-4 h-4 mr-2" />
+                        Refresh Status
+                      </Button>
+                    </div>
+                  ) : webInbox.session_status !== "connected" ? (
                     <div className="text-center py-8">
                       <Smartphone className="w-12 h-12 mx-auto mb-4 opacity-30" />
                       <p className="text-sm text-muted-foreground mb-4">
@@ -628,7 +652,8 @@ export const WhatsAppPage = () => {
                             });
                             if (res.ok) {
                               toast.success("Starting QR login...");
-                              fetchData();
+                              // Poll for QR code
+                              setTimeout(fetchData, 2000);
                             } else {
                               const err = await res.json();
                               toast.error(err.detail || "Failed to start");
