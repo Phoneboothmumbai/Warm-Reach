@@ -285,7 +285,7 @@ Return ONLY the message template text."""
         )
         
         llm_chat = llm_chat.with_model("openai", "gpt-5.2")
-        response = llm_chat.send_message(prompt)
+        response = await llm_chat.send_message(prompt)
         
         # Generate a unique name for the blueprint
         name_styles = [
@@ -297,7 +297,7 @@ Return ONLY the message template text."""
         name_style = random.choice(name_styles)
         
         name_prompt = f"Generate {name_style} outreach (3-5 words, no quotes). Make it unique and memorable. Return ONLY the name."
-        name_response = llm_chat.send_message(name_prompt)
+        name_response = await llm_chat.send_message(name_prompt)
         
         return {
             "name": name_response.strip().replace('"', '').replace("'", ""),
