@@ -123,7 +123,7 @@ async function createConnection(tenantId) {
     // Get latest Baileys version
     const { version } = await fetchLatestBaileysVersion();
     
-    // Create socket connection
+    // Create socket connection with better stability settings
     const sock = makeWASocket({
       version,
       auth: state,
@@ -131,18 +131,25 @@ async function createConnection(tenantId) {
       logger: pino({ level: 'silent' }),
       browser: ['WarmReach', 'Chrome', '120.0.0'],
       connectTimeoutMs: 60000,
-      qrTimeout: 60000,
-      defaultQueryTimeoutMs: 60000
+      qrTimeout: 40000,
+      defaultQueryTimeoutMs: 60000,
+      keepAliveIntervalMs: 30000,
+      retryRequestDelayMs: 250,
+      markOnlineOnConnect: false,
+      syncFullHistory: false
     });
     
     store.bind(sock.ev);
+    
+    // Track connection state to prevent duplicate QR generation
+    let isConnected = false;
     
     // Handle connection updates
     sock.ev.on('connection.update', async (update) => {
       const { connection, lastDisconnect, qr } = update;
       
-      if (qr) {
-        // Generate QR code as data URL
+      if (qr && !isConnected) {
+        // Generate QR code as data URL only if not connected
         const qrDataUrl = await QRCode.toDataURL(qr);
         
         // Save QR to session state
@@ -159,10 +166,20 @@ async function createConnection(tenantId) {
       }
       
       if (connection === 'close') {
+        isConnected = false;
         const reason = lastDisconnect?.error?.output?.statusCode;
-        const shouldReconnect = reason !== DisconnectReason.loggedOut;
+        const shouldReconnect = reason !== DisconnectReason.loggedOut && reason !== 401;
         
         logger.info(`Connection closed for ${tenantId}, reason: ${reason}, reconnect: ${shouldReconnect}`);
+        
+        if (reason === DisconnectReason.loggedOut || reason === 401) {
+          // Clear session files on logout
+          const sessionDir = path.join('/tmp', 'wa-sessions', tenantId);
+          if (fs.existsSync(sessionDir)) {
+            fs.rmSync(sessionDir, { recursive: true, force: true });
+          }
+          await deleteSessionState(tenantId);
+        }
         
         await saveSessionState(tenantId, {
           status: reason === DisconnectReason.loggedOut ? 'disconnected' : 'expired',
@@ -174,16 +191,20 @@ async function createConnection(tenantId) {
         // Notify backend
         notifyBackend(tenantId, 'disconnected', { reason });
         
-        // Attempt reconnection if not logged out
+        // Attempt reconnection with backoff if not logged out
         if (shouldReconnect) {
+          const delay = Math.min(30000, 5000 * (reconnectAttempts.get(tenantId) || 1));
+          reconnectAttempts.set(tenantId, (reconnectAttempts.get(tenantId) || 1) + 1);
           setTimeout(() => {
-            logger.info(`Attempting reconnection for ${tenantId}`);
+            logger.info(`Attempting reconnection for ${tenantId} after ${delay}ms`);
             createConnection(tenantId);
-          }, 5000);
+          }, delay);
         }
       }
       
       if (connection === 'open') {
+        isConnected = true;
+        reconnectAttempts.delete(tenantId); // Reset reconnect counter
         const phoneNumber = sock.user?.id?.split(':')[0] || 'unknown';
         
         await saveSessionState(tenantId, {
@@ -199,6 +220,9 @@ async function createConnection(tenantId) {
         
         // Notify backend
         notifyBackend(tenantId, 'connected', { phone_number: phoneNumber });
+        
+        // Sync recent chats
+        syncRecentChats(tenantId, sock);
       }
     });
     
