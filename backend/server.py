@@ -172,7 +172,7 @@ async def generate_ai_blueprint(channel: str, intent: str, angle: str, tone: str
                                  existing_blueprints: List[str] = None) -> Dict:
     """Generate a unique blueprint structure using AI"""
     try:
-        from emergentintegrations.llm.chat import LlmChat
+        from emergentintegrations.llm.chat import LlmChat, UserMessage
         import random
         import time
         
