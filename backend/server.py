@@ -304,7 +304,9 @@ Your new blueprint MUST:
 - NOT start with similar words or patterns
 """
         
-        prompt = f"""Generate a unique B2B outreach message blueprint. Variation #{variation_seed}
+        prompt = f"""Generate a unique B2B outreach message blueprint for an IT solutions company. Variation #{variation_seed}
+
+{business_context}
 
 CHANNEL: {channel}
 {channel_guidance.get(channel, channel_guidance['email'])}
@@ -325,13 +327,14 @@ Use these placeholders:
 - {{{{company_name}}}} - Contact's company
 - {{{{job_title}}}} - Contact's job title
 
-RULES:
+STRICT RULES:
 1. Use the CREATIVE DIRECTION as your opening approach
-2. Keep it natural and human-sounding
-3. Don't invent specific facts or claims
-4. Make each blueprint structurally different
-5. Follow channel constraints strictly
-6. Be creative with sentence structure and flow
+2. Focus on IT services: support, security, devices, infrastructure
+3. NEVER mention pricing or costs
+4. NEVER mention competitor names
+5. Position as a trusted IT partner, not a vendor
+6. Keep it natural and human-sounding
+7. Follow channel constraints strictly
 
 Return ONLY the message template text."""
 
