@@ -2206,6 +2206,307 @@ async def send_whatsapp_message(
         logger.error(f"WhatsApp request error: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to connect to WhatsApp API: {str(e)}")
 
+# ========================
+# WHATSAPP WEBHOOK ROUTES
+# ========================
+
+# Whitelisted IPs for webhook callbacks
+WHITELISTED_IPS = [
+    "65.20.80.78",  # WarmReach production server
+    "127.0.0.1",    # Localhost for testing
+    "::1",          # IPv6 localhost
+]
+
+# Add Meta's webhook verification IPs (for WhatsApp Cloud API)
+META_WEBHOOK_IPS = [
+    "65.20.80.78",  # WarmReach server
+]
+
+class WhatsAppWebhookMessage(BaseModel):
+    object: str
+    entry: List[Dict[str, Any]]
+
+class WebhookVerification(BaseModel):
+    hub_mode: str = Field(alias="hub.mode")
+    hub_verify_token: str = Field(alias="hub.verify_token")  
+    hub_challenge: str = Field(alias="hub.challenge")
+
+from fastapi import Request
+
+def get_client_ip(request: Request) -> str:
+    """Extract client IP from request headers or connection"""
+    # Check X-Forwarded-For header (for reverse proxies)
+    forwarded = request.headers.get("X-Forwarded-For")
+    if forwarded:
+        return forwarded.split(",")[0].strip()
+    # Check X-Real-IP header
+    real_ip = request.headers.get("X-Real-IP")
+    if real_ip:
+        return real_ip
+    # Fall back to direct connection
+    return request.client.host if request.client else "unknown"
+
+def is_ip_whitelisted(ip: str) -> bool:
+    """Check if IP is in whitelist"""
+    return ip in WHITELISTED_IPS or ip in META_WEBHOOK_IPS
+
+@api_router.get("/whatsapp/webhook")
+async def verify_whatsapp_webhook(
+    request: Request,
+    hub_mode: str = Query(None, alias="hub.mode"),
+    hub_verify_token: str = Query(None, alias="hub.verify_token"),
+    hub_challenge: str = Query(None, alias="hub.challenge")
+):
+    """
+    WhatsApp webhook verification endpoint.
+    Meta sends a GET request to verify the webhook URL.
+    """
+    client_ip = get_client_ip(request)
+    logger.info(f"WhatsApp webhook verification from IP: {client_ip}")
+    
+    # Get the verify token from environment or use default
+    expected_token = os.environ.get("WHATSAPP_VERIFY_TOKEN", "warmreach_webhook_token")
+    
+    if hub_mode == "subscribe" and hub_verify_token == expected_token:
+        logger.info("WhatsApp webhook verified successfully")
+        # Return the challenge as plain text (required by Meta)
+        from fastapi.responses import PlainTextResponse
+        return PlainTextResponse(content=hub_challenge)
+    
+    logger.warning(f"WhatsApp webhook verification failed. Mode: {hub_mode}, Token match: {hub_verify_token == expected_token}")
+    raise HTTPException(status_code=403, detail="Verification failed")
+
+@api_router.post("/whatsapp/webhook")
+async def receive_whatsapp_webhook(
+    request: Request,
+    payload: Dict[str, Any]
+):
+    """
+    WhatsApp webhook endpoint to receive message status updates and incoming messages.
+    Called by Meta when:
+    - Message status changes (sent, delivered, read, failed)
+    - User sends a reply to your business
+    """
+    client_ip = get_client_ip(request)
+    logger.info(f"WhatsApp webhook received from IP: {client_ip}")
+    
+    # Log the webhook payload for debugging
+    logger.info(f"WhatsApp webhook payload: {payload}")
+    
+    try:
+        # Process webhook entries
+        if payload.get("object") == "whatsapp_business_account":
+            for entry in payload.get("entry", []):
+                for change in entry.get("changes", []):
+                    value = change.get("value", {})
+                    
+                    # Handle message status updates
+                    if "statuses" in value:
+                        for status in value["statuses"]:
+                            await process_message_status(status)
+                    
+                    # Handle incoming messages (replies)
+                    if "messages" in value:
+                        for message in value["messages"]:
+                            await process_incoming_message(message, value.get("metadata", {}))
+        
+        return {"status": "ok"}
+        
+    except Exception as e:
+        logger.error(f"Error processing WhatsApp webhook: {e}")
+        # Always return 200 to acknowledge receipt (Meta will retry on failures)
+        return {"status": "error", "message": str(e)}
+
+async def process_message_status(status: Dict):
+    """Process message status updates from WhatsApp"""
+    message_id = status.get("id")
+    status_type = status.get("status")  # sent, delivered, read, failed
+    timestamp = status.get("timestamp")
+    recipient_id = status.get("recipient_id")
+    
+    logger.info(f"Message status update: {message_id} -> {status_type}")
+    
+    # Map WhatsApp status to our MessageStatus
+    status_mapping = {
+        "sent": MessageStatus.SENT,
+        "delivered": MessageStatus.DELIVERED,
+        "read": MessageStatus.DELIVERED,  # We don't have a "read" status
+        "failed": MessageStatus.FAILED
+    }
+    
+    new_status = status_mapping.get(status_type)
+    if new_status:
+        # Update message in database
+        update_fields = {"status": new_status}
+        if status_type == "sent":
+            update_fields["sent_at"] = datetime.now(timezone.utc).isoformat()
+        elif status_type == "delivered":
+            update_fields["delivered_at"] = datetime.now(timezone.utc).isoformat()
+        elif status_type == "failed":
+            errors = status.get("errors", [])
+            if errors:
+                update_fields["error_message"] = errors[0].get("message", "Unknown error")
+        
+        # Find and update the message by WhatsApp message ID
+        # Note: We'd need to store the WhatsApp message ID when sending
+        await db.messages.update_one(
+            {"whatsapp_message_id": message_id},
+            {"$set": update_fields}
+        )
+
+async def process_incoming_message(message: Dict, metadata: Dict):
+    """Process incoming WhatsApp messages (replies from contacts)"""
+    from_number = message.get("from")  # Sender's phone number
+    message_type = message.get("type")  # text, image, etc.
+    timestamp = message.get("timestamp")
+    wa_message_id = message.get("id")
+    
+    logger.info(f"Incoming WhatsApp message from {from_number}: type={message_type}")
+    
+    # Extract message content based on type
+    content = ""
+    if message_type == "text":
+        content = message.get("text", {}).get("body", "")
+    elif message_type == "button":
+        content = message.get("button", {}).get("text", "")
+    elif message_type == "interactive":
+        interactive = message.get("interactive", {})
+        if "button_reply" in interactive:
+            content = interactive["button_reply"].get("title", "")
+        elif "list_reply" in interactive:
+            content = interactive["list_reply"].get("title", "")
+    else:
+        content = f"[{message_type} message]"
+    
+    # Find the contact by phone number
+    # Note: Phone numbers from WhatsApp don't include '+'
+    contact = await db.contacts.find_one(
+        {"phone": {"$regex": from_number}},
+        {"_id": 0}
+    )
+    
+    if contact:
+        # Create a reply record
+        reply = Reply(
+            tenant_id=contact["tenant_id"],
+            contact_id=contact["id"],
+            message_id=wa_message_id,  # Use WhatsApp message ID as reference
+            channel=Channel.WHATSAPP,
+            content=content,
+            sentiment=None  # Can be classified later with AI
+        )
+        
+        reply_doc = reply.model_dump()
+        reply_doc['created_at'] = reply_doc['created_at'].isoformat()
+        
+        await db.replies.insert_one(reply_doc)
+        
+        # Update contact status to "replied"
+        await db.contacts.update_one(
+            {"id": contact["id"]},
+            {
+                "$set": {
+                    "status": ContactStatus.REPLIED,
+                    "updated_at": datetime.now(timezone.utc).isoformat()
+                }
+            }
+        )
+        
+        logger.info(f"Saved reply from contact {contact['id']}")
+    else:
+        logger.warning(f"No contact found for phone number: {from_number}")
+
+# ========================
+# IP WHITELIST SETTINGS
+# ========================
+
+class IPWhitelistSettings(BaseModel):
+    whitelisted_ips: List[str]
+
+@api_router.get("/settings/ip-whitelist")
+async def get_ip_whitelist(current_user: Dict = Depends(get_current_user)):
+    """Get the current IP whitelist configuration"""
+    if current_user["role"] not in [UserRole.OWNER, UserRole.ADMIN]:
+        raise HTTPException(status_code=403, detail="Only owner and admin can view IP whitelist")
+    
+    # Get tenant-specific whitelist
+    tenant_config = await db.tenant_config.find_one(
+        {"tenant_id": current_user["tenant_id"]},
+        {"_id": 0}
+    )
+    
+    custom_ips = tenant_config.get("whitelisted_ips", []) if tenant_config else []
+    
+    return {
+        "global_ips": WHITELISTED_IPS,
+        "tenant_ips": custom_ips,
+        "all_ips": list(set(WHITELISTED_IPS + custom_ips))
+    }
+
+@api_router.post("/settings/ip-whitelist")
+async def add_ip_to_whitelist(
+    ip_address: str,
+    current_user: Dict = Depends(get_current_user)
+):
+    """Add an IP address to the tenant's whitelist"""
+    if current_user["role"] != UserRole.OWNER:
+        raise HTTPException(status_code=403, detail="Only owner can modify IP whitelist")
+    
+    # Validate IP format
+    import ipaddress
+    try:
+        ipaddress.ip_address(ip_address)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid IP address format")
+    
+    # Add to tenant's whitelist
+    await db.tenant_config.update_one(
+        {"tenant_id": current_user["tenant_id"]},
+        {
+            "$addToSet": {"whitelisted_ips": ip_address},
+            "$set": {"updated_at": datetime.now(timezone.utc).isoformat()}
+        },
+        upsert=True
+    )
+    
+    await log_audit(
+        current_user["tenant_id"],
+        current_user["id"],
+        "add_ip",
+        "whitelist",
+        ip_address
+    )
+    
+    return {"message": f"IP {ip_address} added to whitelist"}
+
+@api_router.delete("/settings/ip-whitelist/{ip_address}")
+async def remove_ip_from_whitelist(
+    ip_address: str,
+    current_user: Dict = Depends(get_current_user)
+):
+    """Remove an IP address from the tenant's whitelist"""
+    if current_user["role"] != UserRole.OWNER:
+        raise HTTPException(status_code=403, detail="Only owner can modify IP whitelist")
+    
+    # Remove from tenant's whitelist
+    result = await db.tenant_config.update_one(
+        {"tenant_id": current_user["tenant_id"]},
+        {
+            "$pull": {"whitelisted_ips": ip_address},
+            "$set": {"updated_at": datetime.now(timezone.utc).isoformat()}
+        }
+    )
+    
+    await log_audit(
+        current_user["tenant_id"],
+        current_user["id"],
+        "remove_ip",
+        "whitelist",
+        ip_address
+    )
+    
+    return {"message": f"IP {ip_address} removed from whitelist"}
+
 @api_router.get("/settings/users", response_model=List[UserResponse])
 async def get_tenant_users(current_user: Dict = Depends(get_current_user)):
     if current_user["role"] not in [UserRole.OWNER, UserRole.ADMIN]:
