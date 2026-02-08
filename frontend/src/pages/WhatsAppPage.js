@@ -502,16 +502,170 @@ export const WhatsAppPage = () => {
           )}
         </TabsContent>
 
-        {/* Web Login Tab (Phase 2 - Placeholder) */}
+        {/* Web Login Tab (Phase 2) */}
         <TabsContent value="web" className="space-y-4">
           <Alert className="border-yellow-500/50 bg-yellow-500/10">
             <AlertTriangle className="h-4 w-4 text-yellow-600" />
-            <AlertTitle>Coming Soon - WhatsApp Web Integration</AlertTitle>
+            <AlertTitle>⚠️ Risk Warning - WhatsApp Web Automation</AlertTitle>
             <AlertDescription>
-              WhatsApp Web integration via QR scan is under development. This feature will allow you to 
-              connect your personal WhatsApp account, but carries account ban risk due to WhatsApp's terms of service.
+              WhatsApp Web automation is <strong>against WhatsApp's Terms of Service</strong> and may result in 
+              your phone number being banned. Use at your own risk. This integration uses your personal WhatsApp 
+              account via QR scan, not the official Business API.
             </AlertDescription>
           </Alert>
+
+          {!webEnabled ? (
+            <Card className="card-surface">
+              <CardHeader>
+                <CardTitle>WhatsApp Web Integration</CardTitle>
+                <CardDescription>
+                  Connect your personal WhatsApp account via QR scan. This is separate from the Business Cloud API.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <Alert className="bg-destructive/10 border-destructive/30">
+                  <AlertTriangle className="h-4 w-4 text-destructive" />
+                  <AlertTitle>Important: Account Ban Risk</AlertTitle>
+                  <AlertDescription className="space-y-2">
+                    <p>By enabling this feature, you acknowledge that:</p>
+                    <ul className="list-disc list-inside text-sm space-y-1 mt-2">
+                      <li>WhatsApp may ban your phone number without warning</li>
+                      <li>This integration is unofficial and not supported by WhatsApp</li>
+                      <li>Rate limits are stricter (20 messages/hour) to minimize detection</li>
+                      <li>Sessions may disconnect unexpectedly and require re-scanning QR</li>
+                    </ul>
+                  </AlertDescription>
+                </Alert>
+
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="risk-accept"
+                    className="w-4 h-4"
+                    data-testid="wa-web-risk-checkbox"
+                  />
+                  <label htmlFor="risk-accept" className="text-sm">
+                    I understand and accept the risk of account ban
+                  </label>
+                </div>
+
+                <Button 
+                  onClick={async () => {
+                    const checkbox = document.getElementById('risk-accept');
+                    if (!checkbox?.checked) {
+                      toast.error("Please accept the risk acknowledgment first");
+                      return;
+                    }
+                    try {
+                      const res = await authFetch(`${API}/wa/web/enable`, { method: "POST" });
+                      if (res.ok) {
+                        setWebEnabled(true);
+                        toast.success("WhatsApp Web integration enabled");
+                      } else {
+                        const err = await res.json();
+                        toast.error(err.detail || "Failed to enable");
+                      }
+                    } catch (e) {
+                      toast.error("Failed to enable WhatsApp Web");
+                    }
+                  }}
+                  variant="destructive"
+                  data-testid="enable-wa-web-btn"
+                >
+                  Enable WhatsApp Web Integration
+                </Button>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 h-[70vh]">
+              {/* Web Contacts List - Similar to Cloud API but for Web */}
+              <Card className="card-surface lg:col-span-1">
+                <CardHeader className="pb-3">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-sm font-medium flex items-center gap-2">
+                      <Smartphone className="w-4 h-4" />
+                      Web Conversations
+                    </CardTitle>
+                    <Badge variant="outline" className={cn(
+                      "font-mono text-xs",
+                      webInbox.session_status === "connected" ? "border-green-500 text-green-600" : "border-yellow-500 text-yellow-600"
+                    )}>
+                      {webInbox.session_status === "connected" ? webInbox.connected_number : webInbox.session_status}
+                    </Badge>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  {webInbox.session_status !== "connected" ? (
+                    <div className="text-center py-8">
+                      <Smartphone className="w-12 h-12 mx-auto mb-4 opacity-30" />
+                      <p className="text-sm text-muted-foreground mb-4">
+                        {webInbox.session_status === "qr_pending" 
+                          ? "Scan QR code to connect" 
+                          : "Not connected"}
+                      </p>
+                      <Button
+                        onClick={async () => {
+                          try {
+                            const res = await authFetch(`${API}/wa/web/start`, {
+                              method: "POST",
+                              body: JSON.stringify({ risk_accepted: true })
+                            });
+                            if (res.ok) {
+                              toast.success("Starting QR login...");
+                              fetchData();
+                            } else {
+                              const err = await res.json();
+                              toast.error(err.detail || "Failed to start");
+                            }
+                          } catch (e) {
+                            toast.error("Failed to start session");
+                          }
+                        }}
+                        data-testid="start-wa-web-btn"
+                      >
+                        <Smartphone className="w-4 h-4 mr-2" />
+                        Start QR Login
+                      </Button>
+                    </div>
+                  ) : (
+                    <ScrollArea className="h-[55vh]">
+                      <p className="text-sm text-muted-foreground p-4 text-center">
+                        WhatsApp Web inbox functionality coming soon
+                      </p>
+                    </ScrollArea>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Chat Area Placeholder */}
+              <Card className="card-surface lg:col-span-2">
+                <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
+                  <Smartphone className="w-16 h-16 mb-4 opacity-30" />
+                  <p className="text-lg font-medium">WhatsApp Web Chat</p>
+                  <p className="text-sm">Connect via QR code to start messaging</p>
+                  {webInbox.session_status === "connected" && (
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      className="mt-4"
+                      onClick={async () => {
+                        try {
+                          await authFetch(`${API}/wa/web/disconnect`, { method: "POST" });
+                          toast.success("Disconnected");
+                          fetchData();
+                        } catch (e) {
+                          toast.error("Failed to disconnect");
+                        }
+                      }}
+                      data-testid="disconnect-wa-web-btn"
+                    >
+                      Disconnect Session
+                    </Button>
+                  )}
+                </div>
+              </Card>
+            </div>
+          )}
         </TabsContent>
       </Tabs>
     </div>
