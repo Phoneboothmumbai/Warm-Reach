@@ -127,13 +127,13 @@ Message Blueprint:
         # Variation seed - ensures different outputs each time
         variation_seed = random.randint(1000, 9999)
         opening_styles = [
-            "Start with a genuine observation about their company",
-            "Begin with a thought-provoking question",
-            "Open with a relevant industry trend",
-            "Start by acknowledging their role/position",
-            "Begin with a brief personal connection or shared experience",
-            "Open with a surprising statistic or fact",
-            "Start with genuine curiosity about their business"
+            "Start with a genuine observation about their IT challenges",
+            "Begin with a thought-provoking question about their tech operations",
+            "Open with a relevant industry trend about IT/security",
+            "Start by acknowledging their role in managing technology",
+            "Open with a question about their current IT support experience",
+            "Start with curiosity about how they handle device management",
+            "Begin by referencing common IT pain points for growing companies"
         ]
         selected_style = random.choice(opening_styles)
         
@@ -151,10 +151,12 @@ Your message must:
 - Use a different opening hook
 - Use different words and sentence structure  
 - Have a unique angle or observation
-- NOT start with similar phrases like "I noticed" if previous messages do
+- NOT start with similar phrases if previous messages use them
 """
         
-        prompt = f"""Generate a B2B outreach message for this contact. Variation #{variation_seed}
+        prompt = f"""Generate a B2B outreach message for an IT solutions company. Variation #{variation_seed}
+
+{business_context}
 
 {contact_context}
 
@@ -168,11 +170,13 @@ Opening Style for THIS message: {selected_style}
 
 STRICT RULES:
 1. DO NOT invent facts about the contact's company
-2. DO NOT use generic phrases like "I noticed your company" unless you have specific info
-3. Replace placeholders with actual contact data
-4. Make it feel personal and human, not templated
-5. Use the specified opening style: {selected_style}
-6. Be concise - respect their time
+2. DO NOT mention pricing, costs, or specific numbers
+3. DO NOT mention any competitor names
+4. Replace placeholders with actual contact data
+5. Focus on IT pain points: downtime, security risks, device management, support quality
+6. Position as a long-term IT partner, not a vendor
+7. Use the specified opening style: {selected_style}
+8. Be concise - respect their time
 7. If you don't have company details, focus on the recipient's role/position instead
 
 OUTPUT: Generate ONLY the message text. No subject lines, no labels, no explanations."""
