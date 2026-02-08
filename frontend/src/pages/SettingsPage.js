@@ -657,6 +657,93 @@ export const SettingsPage = () => {
                 </CardDescription>
               </CardHeader>
             </Card>
+
+            {/* IP Whitelist Configuration */}
+            <Card className="card-surface">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Shield className="w-5 h-5 text-primary" />
+                  IP Whitelist
+                </CardTitle>
+                <CardDescription>
+                  Configure allowed IP addresses for webhook callbacks and API access
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {/* Global IPs (read-only) */}
+                <div>
+                  <Label className="text-sm font-medium">Global Whitelisted IPs</Label>
+                  <p className="text-xs text-muted-foreground mb-2">
+                    System-level IPs that are always allowed
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {ipWhitelist.global_ips?.map((ip) => (
+                      <Badge key={ip} variant="secondary" className="font-mono">
+                        {ip}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Tenant-specific IPs */}
+                <div>
+                  <Label className="text-sm font-medium">Custom Whitelisted IPs</Label>
+                  <p className="text-xs text-muted-foreground mb-2">
+                    Additional IPs you've added for your organization
+                  </p>
+                  {ipWhitelist.tenant_ips?.length > 0 ? (
+                    <div className="flex flex-wrap gap-2 mb-3">
+                      {ipWhitelist.tenant_ips.map((ip) => (
+                        <Badge key={ip} variant="outline" className="font-mono flex items-center gap-1">
+                          {ip}
+                          {isOwner && (
+                            <button
+                              onClick={() => handleRemoveIp(ip)}
+                              className="ml-1 hover:text-destructive"
+                            >
+                              <Trash2 className="w-3 h-3" />
+                            </button>
+                          )}
+                        </Badge>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground mb-3">No custom IPs added</p>
+                  )}
+
+                  {/* Add IP form */}
+                  {isOwner && (
+                    <div className="flex gap-2">
+                      <Input
+                        placeholder="e.g., 192.168.1.1"
+                        value={newIpAddress}
+                        onChange={(e) => setNewIpAddress(e.target.value)}
+                        className="font-mono max-w-xs"
+                        data-testid="new-ip-input"
+                      />
+                      <Button
+                        onClick={handleAddIp}
+                        disabled={savingIp || !newIpAddress.trim()}
+                        data-testid="add-ip-btn"
+                      >
+                        {savingIp ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          "Add IP"
+                        )}
+                      </Button>
+                    </div>
+                  )}
+                </div>
+
+                <Alert className="bg-muted/50">
+                  <Shield className="h-4 w-4" />
+                  <AlertDescription className="text-sm">
+                    <strong>WarmReach Server:</strong> <code className="font-mono bg-background px-1 rounded">65.20.80.78</code> is pre-configured for webhook callbacks
+                  </AlertDescription>
+                </Alert>
+              </CardContent>
+            </Card>
           </TabsContent>
         )}
 
