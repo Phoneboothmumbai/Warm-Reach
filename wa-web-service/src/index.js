@@ -498,13 +498,43 @@ app.get('/session/:tenantId/rate-limit', (req, res) => {
 // SERVER STARTUP
 // ========================
 
+async function restoreExistingSessions() {
+  try {
+    // Find existing session directories
+    const sessionsDir = '/tmp/wa-sessions';
+    if (!fs.existsSync(sessionsDir)) return;
+    
+    const tenantDirs = fs.readdirSync(sessionsDir);
+    
+    for (const tenantId of tenantDirs) {
+      const sessionDir = path.join(sessionsDir, tenantId);
+      const credsFile = path.join(sessionDir, 'creds.json');
+      
+      // Only restore if credentials exist
+      if (fs.existsSync(credsFile)) {
+        logger.info(`Restoring session for tenant ${tenantId}`);
+        try {
+          await createConnection(tenantId);
+        } catch (error) {
+          logger.error(`Failed to restore session for ${tenantId}: ${error.message}`);
+        }
+      }
+    }
+  } catch (error) {
+    logger.error(`Error restoring sessions: ${error.message}`);
+  }
+}
+
 async function start() {
   await initRedis();
   
-  app.listen(PORT, () => {
+  app.listen(PORT, async () => {
     logger.info(`WhatsApp Web service running on port ${PORT}`);
     logger.info(`Backend URL: ${BACKEND_URL}`);
     logger.info(`Rate limit: ${RATE_LIMIT_HOUR} messages/hour`);
+    
+    // Restore existing sessions after startup
+    setTimeout(restoreExistingSessions, 3000);
   });
 }
 
