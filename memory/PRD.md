@@ -294,3 +294,47 @@ WhatsApp Layer
 - Integration type badge on each chat
 - Connected phone number displayed per inbox
 
+
+
+---
+
+## Update: Full Business Context in AI Prompts (Feb 2026)
+
+### What Was Requested
+User provided detailed "Brands & Solutions" context to be incorporated into all AI-generated content:
+- IT Solutions company + NeoStore retail arm
+- Hardware: Apple, Lenovo, Dell, HP
+- Cloud: Google Workspace, Microsoft 365, Azure
+- Networking: Cisco (Meraki), Ubiquiti, Fortinet, SonicWall
+- Backup: Veeam, Acronis, Datto
+- Endpoint Management: Jamf, Intune, Kandji
+- Monitoring: ConnectWise, NinjaRMM, Domotz
+
+### What Was Implemented
+
+#### Updated Functions in `/app/backend/server.py`:
+1. **`generate_ai_message()`** - Full business context with all brands and solutions
+2. **`generate_ai_blueprint()`** - Comprehensive context for blueprint generation
+
+#### Key Additions to AI Prompts:
+- Complete list of hardware brands (Apple, Dell, HP, Lenovo) with specific product lines
+- Cloud & productivity tools (Google Workspace, Microsoft 365, Azure)
+- Networking & security vendors (Cisco Meraki, Ubiquiti, Fortinet, SonicWall)
+- Backup solutions (Veeam, Acronis, Datto)
+- Endpoint management tools (Jamf, Intune, Kandji)
+- Instructions to tailor messages based on contact's industry
+- Reference relevant brands/solutions contextually
+
+### Test Results
+- ✅ AI Blueprint Generation: Working with full context
+- ✅ AI Message Generation: Personalized with brand references
+- ✅ Industry-specific: Adapts language for Finance, Healthcare, Technology
+- ✅ Channel compliance: Email (4-6 lines), WhatsApp (3 lines max)
+- ✅ No pricing mentioned
+- ✅ No competitor names
+
+### Sample Generated Content
+- Email for IT Manager at TechCorp: "Apple/Windows endpoints... Jamf/Intune... NeoStore supports Apple-heavy and hybrid setups"
+- WhatsApp for Healthcare: "proactive monitoring + patching across Apple/Windows endpoints"
+- Finance risk email: "security, monitoring, and lifecycle management across Apple and Windows"
+
