@@ -15,7 +15,8 @@ import {
   ChevronRight,
   Bell,
   Moon,
-  Sun
+  Sun,
+  MessageCircle
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -37,6 +38,7 @@ const navigation = [
   { name: "Blueprints", href: "/blueprints", icon: FileText },
   { name: "Messages", href: "/messages", icon: MessageSquare },
   { name: "Inbox", href: "/inbox", icon: Inbox },
+  { name: "WhatsApp", href: "/whatsapp", icon: MessageCircle },
   { name: "Settings", href: "/settings", icon: Settings },
 ];
 
