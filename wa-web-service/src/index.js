@@ -27,8 +27,6 @@ require('dotenv').config();
 const fs = require('fs');
 const path = require('path');
 
-dotenv.config();
-
 const app = express();
 app.use(cors());
 app.use(express.json());
