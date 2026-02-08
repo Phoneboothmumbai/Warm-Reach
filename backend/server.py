@@ -155,7 +155,7 @@ OUTPUT: Generate ONLY the message text. No subject lines, no labels, no explanat
         )
         
         # Use GPT-5.2 model with temperature for variation
-        llm_chat = llm_chat.with_model("gpt-5.2")
+        llm_chat = llm_chat.with_model("openai", "gpt-5.2")
         
         response = llm_chat.send_message(prompt)
         
@@ -284,7 +284,7 @@ Return ONLY the message template text."""
             system_message="You are a creative B2B copywriter. Each blueprint you create is unique with different hooks, structures, and phrasing. Never repeat patterns."
         )
         
-        llm_chat = llm_chat.with_model("gpt-5.2")
+        llm_chat = llm_chat.with_model("openai", "gpt-5.2")
         response = llm_chat.send_message(prompt)
         
         # Generate a unique name for the blueprint
