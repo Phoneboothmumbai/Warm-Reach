@@ -3319,6 +3319,50 @@ async def wa_web_webhook(payload: WAWebWebhookPayload):
                 {"$set": update_fields}
             )
     
+    elif event == "contact_sync":
+        # Sync contact from WhatsApp Web
+        phone_number = data.get("phone_number", "")
+        name = data.get("name")
+        unread_count = data.get("unread_count", 0)
+        
+        session = await db.wa_web_sessions.find_one(
+            {"tenant_id": tenant_id},
+            {"_id": 0}
+        )
+        
+        if session and session.get("phone_number"):
+            connected_number = session["phone_number"]
+            
+            # Upsert contact
+            existing = await db.wa_web_contacts.find_one(
+                {
+                    "tenant_id": tenant_id,
+                    "connected_number": connected_number,
+                    "phone_number": phone_number
+                },
+                {"_id": 0}
+            )
+            
+            if not existing:
+                new_contact = WAWebContact(
+                    tenant_id=tenant_id,
+                    connected_number=connected_number,
+                    phone_number=phone_number,
+                    name=name,
+                    unread_count=unread_count
+                )
+                contact_doc = new_contact.model_dump()
+                contact_doc['created_at'] = contact_doc['created_at'].isoformat()
+                await db.wa_web_contacts.insert_one(contact_doc)
+            else:
+                update_fields = {"unread_count": unread_count}
+                if name:
+                    update_fields["name"] = name
+                await db.wa_web_contacts.update_one(
+                    {"id": existing["id"]},
+                    {"$set": update_fields}
+                )
+    
     return {"status": "ok"}
 
 # ========================
