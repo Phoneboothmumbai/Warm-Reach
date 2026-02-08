@@ -263,19 +263,55 @@ async function createConnection(tenantId) {
     // Handle credential updates
     sock.ev.on('creds.update', saveCreds);
     
+    // Handle initial chat history load
+    sock.ev.on('chats.set', async ({ chats }) => {
+      logger.info(`Initial chat set for ${tenantId}: ${chats.length} chats`);
+      for (const chat of chats.slice(0, 30)) {
+        const jid = chat.id;
+        if (!jid || jid.includes('@g.us') || jid.includes('@broadcast')) continue;
+        
+        const phoneNumber = jid.replace('@s.whatsapp.net', '');
+        notifyBackend(tenantId, 'contact_sync', {
+          phone_number: phoneNumber,
+          name: chat.name || chat.notify || null,
+          unread_count: chat.unreadCount || 0
+        });
+      }
+    });
+    
+    // Handle new/updated chats
+    sock.ev.on('chats.upsert', async (chats) => {
+      logger.info(`Chat upsert for ${tenantId}: ${chats.length} chats`);
+      for (const chat of chats) {
+        const jid = chat.id;
+        if (!jid || jid.includes('@g.us') || jid.includes('@broadcast')) continue;
+        
+        const phoneNumber = jid.replace('@s.whatsapp.net', '');
+        notifyBackend(tenantId, 'contact_sync', {
+          phone_number: phoneNumber,
+          name: chat.name || chat.notify || null,
+          unread_count: chat.unreadCount || 0
+        });
+      }
+    });
+    
     // Handle incoming messages
     sock.ev.on('messages.upsert', async ({ messages, type }) => {
-      if (type !== 'notify') return;
+      logger.info(`Messages upsert for ${tenantId}: ${messages.length} messages, type: ${type}`);
       
+      // Process all incoming messages (not just 'notify')
       for (const msg of messages) {
         if (msg.key.fromMe) continue; // Skip outgoing messages
         
         const from = msg.key.remoteJid?.replace('@s.whatsapp.net', '');
+        if (!from || from.includes('@g.us') || from.includes('@broadcast')) continue;
+        
         const content = msg.message?.conversation || 
                        msg.message?.extendedTextMessage?.text ||
+                       msg.message?.imageMessage?.caption ||
                        `[${Object.keys(msg.message || {})[0] || 'unknown'} message]`;
         
-        logger.info(`Incoming message for ${tenantId} from ${from}`);
+        logger.info(`Incoming message for ${tenantId} from ${from}: ${content.substring(0,50)}`);
         
         // Forward to backend
         notifyBackend(tenantId, 'message_received', {
