@@ -271,10 +271,12 @@ export const WhatsAppPage = () => {
               <Badge variant="secondary" className="ml-2 text-xs">Connected</Badge>
             )}
           </TabsTrigger>
-          <TabsTrigger value="web" data-testid="wa-web-tab" disabled={!webEnabled}>
+          <TabsTrigger value="web" data-testid="wa-web-tab">
             <Smartphone className="w-4 h-4 mr-2" />
             Web Login
-            <Badge variant="outline" className="ml-2 text-xs">Coming Soon</Badge>
+            {webEnabled && webInbox.session_status === "connected" && (
+              <Badge variant="secondary" className="ml-2 text-xs bg-green-500/20 text-green-600">Connected</Badge>
+            )}
           </TabsTrigger>
         </TabsList>
 
