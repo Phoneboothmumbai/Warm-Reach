@@ -339,8 +339,9 @@ app.post('/session/:tenantId/start', async (req, res) => {
       message: 'Scan the QR code with your WhatsApp app'
     });
   } catch (error) {
-    logger.error('Error starting session:', error);
-    res.status(500).json({ error: 'Failed to start session' });
+    logger.error('Error starting session:', error.message);
+    logger.error(error.stack);
+    res.status(500).json({ error: 'Failed to start session', details: error.message });
   }
 });
 
