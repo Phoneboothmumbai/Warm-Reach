@@ -187,6 +187,7 @@ function App() {
                       <Route path="/blueprints" element={<BlueprintsPage />} />
                       <Route path="/messages" element={<MessagesPage />} />
                       <Route path="/inbox" element={<InboxPage />} />
+                      <Route path="/whatsapp" element={<WhatsAppPage />} />
                       <Route path="/settings" element={<SettingsPage />} />
                     </Routes>
                   </MainLayout>
