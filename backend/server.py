@@ -168,10 +168,13 @@ OUTPUT: Generate ONLY the message text. No subject lines, no labels, no explanat
 
 async def generate_ai_blueprint(channel: str, intent: str, angle: str, tone: str, 
                                  industry: str = None, target_role: str = None,
-                                 additional_context: str = None) -> Dict:
-    """Generate a blueprint structure using AI"""
+                                 additional_context: str = None,
+                                 existing_blueprints: List[str] = None) -> Dict:
+    """Generate a unique blueprint structure using AI"""
     try:
         from emergentintegrations.llm.chat import LlmChat
+        import random
+        import time
         
         # Channel-specific guidance
         channel_guidance = {
@@ -216,7 +219,35 @@ async def generate_ai_blueprint(channel: str, intent: str, angle: str, tone: str
             "direct": "Straightforward, clear, and action-oriented"
         }
         
-        prompt = f"""Generate a B2B outreach message blueprint for the following specifications:
+        # Variation seed and creative directions
+        variation_seed = random.randint(1000, 9999)
+        
+        creative_hooks = [
+            "Start with a thought-provoking question about their industry",
+            "Open with a surprising statistic or trend",
+            "Begin by acknowledging a common challenge in their role",
+            "Start with a brief story or analogy",
+            "Open with a bold observation about their market",
+            "Begin by referencing a recent industry shift",
+            "Start with genuine curiosity about their approach"
+        ]
+        selected_hook = random.choice(creative_hooks)
+        
+        # Build avoidance context
+        avoid_context = ""
+        if existing_blueprints and len(existing_blueprints) > 0:
+            unique_blueprints = list(set(existing_blueprints))[:5]
+            avoid_context = f"""
+CRITICAL - These blueprints already exist. Create something COMPLETELY DIFFERENT:
+{chr(10).join(['EXISTING: "' + bp[:100] + '..."' for bp in unique_blueprints])}
+
+Your new blueprint MUST:
+- Use a different opening approach
+- Have unique phrasing and structure
+- NOT start with similar words or patterns
+"""
+        
+        prompt = f"""Generate a unique B2B outreach message blueprint. Variation #{variation_seed}
 
 CHANNEL: {channel}
 {channel_guidance.get(channel, channel_guidance['email'])}
@@ -228,44 +259,54 @@ TONE: {tone} - {tone_desc.get(tone, '')}
 {f'TARGET ROLE: {target_role}' if target_role else ''}
 {f'ADDITIONAL CONTEXT: {additional_context}' if additional_context else ''}
 
-Create a message template using these placeholders:
+CREATIVE DIRECTION: {selected_hook}
+
+{avoid_context}
+
+Use these placeholders:
 - {{{{first_name}}}} - Contact's first name
-- {{{{last_name}}}} - Contact's last name  
 - {{{{company_name}}}} - Contact's company
 - {{{{job_title}}}} - Contact's job title
 
 RULES:
-1. Keep it natural and human-sounding
-2. Don't invent specific facts or claims
-3. Use the specified angle as the primary hook
-4. Match the tone precisely
+1. Use the CREATIVE DIRECTION as your opening approach
+2. Keep it natural and human-sounding
+3. Don't invent specific facts or claims
+4. Make each blueprint structurally different
 5. Follow channel constraints strictly
-6. Make it easy for AI to vary later
+6. Be creative with sentence structure and flow
 
-Return ONLY the message template text, nothing else."""
+Return ONLY the message template text."""
 
         llm_chat = LlmChat(
             api_key=EMERGENT_LLM_KEY,
-            session_id=f"blueprint_gen_{uuid.uuid4()}",
-            system_message="You are an expert B2B copywriter specializing in outreach messaging. Create compelling, professional templates that feel human and respect the recipient."
+            session_id=f"blueprint_gen_{int(time.time())}_{variation_seed}",
+            system_message="You are a creative B2B copywriter. Each blueprint you create is unique with different hooks, structures, and phrasing. Never repeat patterns."
         )
         
         llm_chat = llm_chat.with_model("gpt-5.2")
         response = llm_chat.send_message(prompt)
         
-        # Generate a name for the blueprint
-        name_prompt = f"Generate a short, descriptive name (3-5 words) for a {channel} outreach blueprint with {intent} intent and {angle} angle. Return ONLY the name, nothing else."
+        # Generate a unique name for the blueprint
+        name_styles = [
+            f"a creative {channel} name focusing on {angle}",
+            f"an action-oriented name for {intent}",
+            f"a benefit-driven name highlighting {angle}",
+            f"a curiosity-sparking name for {channel}"
+        ]
+        name_style = random.choice(name_styles)
+        
+        name_prompt = f"Generate {name_style} outreach (3-5 words, no quotes). Make it unique and memorable. Return ONLY the name."
         name_response = llm_chat.send_message(name_prompt)
         
         return {
-            "name": name_response.strip().replace('"', ''),
+            "name": name_response.strip().replace('"', '').replace("'", ""),
             "structure": response.strip(),
             "description": f"AI-generated {channel} blueprint for {intent} with {angle} focus"
         }
         
     except Exception as e:
         logger.error(f"AI blueprint generation failed: {e}")
-        # Return a basic template as fallback
         return generate_fallback_blueprint(channel, intent, angle, tone)
 
 def generate_fallback_blueprint(channel: str, intent: str, angle: str, tone: str) -> Dict:
