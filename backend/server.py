@@ -59,15 +59,20 @@ async def generate_ai_message(contact: Dict, blueprint: Dict, previous_messages:
     """Generate a unique message using OpenAI GPT-5.2 via Emergent"""
     try:
         from emergentintegrations.llm.chat import LlmChat
+        import random
+        import time
         
         # Build context about the contact
+        contact_name = f"{contact.get('first_name', '')} {contact.get('last_name', '')}".strip()
+        company = contact.get('company_name', '') or 'their company'
+        
         contact_context = f"""
 Contact Information:
-- Name: {contact.get('first_name', '')} {contact.get('last_name', '')}
-- Company: {contact.get('company_name', 'their company')}
+- Name: {contact_name or 'the recipient'}
+- Company: {company}
 - Job Title: {contact.get('job_title', '')}
+- Industry: {contact.get('industry', '')}
 - City: {contact.get('city', '')}
-- Country: {contact.get('country', '')}
 """
         
         # Build blueprint context
@@ -90,44 +95,66 @@ Message Blueprint:
         
         constraints = channel_constraints.get(blueprint.get('channel', 'email'), channel_constraints['email'])
         
+        # Variation seed - ensures different outputs each time
+        variation_seed = random.randint(1000, 9999)
+        opening_styles = [
+            "Start with a genuine observation about their company",
+            "Begin with a thought-provoking question",
+            "Open with a relevant industry trend",
+            "Start by acknowledging their role/position",
+            "Begin with a brief personal connection or shared experience",
+            "Open with a surprising statistic or fact",
+            "Start with genuine curiosity about their business"
+        ]
+        selected_style = random.choice(opening_styles)
+        
         # Build prompt for unique message
         previous_context = ""
         if previous_messages and len(previous_messages) > 0:
-            previous_context = f"""
-IMPORTANT - Avoid similarity to these previously generated messages:
-{chr(10).join(['- ' + msg[:200] + '...' if len(msg) > 200 else '- ' + msg for msg in previous_messages[:5]])}
+            # Get unique previous messages
+            unique_prev = list(set(previous_messages))[:5]
+            if unique_prev:
+                previous_context = f"""
+CRITICAL - These exact messages were already generated. You MUST write something COMPLETELY DIFFERENT:
+{chr(10).join(['AVOID: "' + msg[:150] + '..."' for msg in unique_prev])}
 
-Generate a COMPLETELY DIFFERENT message with a unique opening, different phrasing, and varied structure.
+Your message must:
+- Use a different opening hook
+- Use different words and sentence structure  
+- Have a unique angle or observation
+- NOT start with similar phrases like "I noticed" if previous messages do
 """
         
-        prompt = f"""You are a B2B outreach expert. Generate a personalized {blueprint.get('channel', 'email')} message.
+        prompt = f"""Generate a B2B outreach message for this contact. Variation #{variation_seed}
 
 {contact_context}
 
 {blueprint_context}
 
-Channel Constraints: {constraints}
+Channel Rules: {constraints}
+
+Opening Style for THIS message: {selected_style}
 
 {previous_context}
 
-RULES:
-1. DO NOT invent facts or make claims about the contact's company
-2. DO NOT add links unless explicitly in the template
+STRICT RULES:
+1. DO NOT invent facts about the contact's company
+2. DO NOT use generic phrases like "I noticed your company" unless you have specific info
 3. Replace placeholders with actual contact data
-4. Make the message feel human, not templated
-5. Vary the opening hook each time
-6. Keep the same intent and angle but use different words/phrases
-7. Be concise and respectful of their time
+4. Make it feel personal and human, not templated
+5. Use the specified opening style: {selected_style}
+6. Be concise - respect their time
+7. If you don't have company details, focus on the recipient's role/position instead
 
-Generate ONLY the message text, nothing else. No subject line, no signature block unless in template."""
+OUTPUT: Generate ONLY the message text. No subject lines, no labels, no explanations."""
 
         llm_chat = LlmChat(
             api_key=EMERGENT_LLM_KEY,
-            session_id=f"batch_gen_{contact.get('id', 'unknown')}",
-            system_message="You are a professional B2B outreach writer. Generate unique, personalized messages that feel human and respect the recipient. Never repeat the same phrasing twice."
+            session_id=f"msg_gen_{contact.get('id', 'unknown')}_{int(time.time())}_{variation_seed}",
+            system_message="You are a creative B2B copywriter. Each message you write is unique and personalized. Never use the same opening twice. Vary your sentence structure, word choice, and approach every time."
         )
         
-        # Use GPT-5.2 model
+        # Use GPT-5.2 model with temperature for variation
         llm_chat = llm_chat.with_model("gpt-5.2")
         
         response = llm_chat.send_message(prompt)
