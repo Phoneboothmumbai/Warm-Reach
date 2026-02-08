@@ -274,23 +274,39 @@ async def generate_ai_blueprint(channel: str, intent: str, angle: str, tone: str
 ABOUT OUR COMPANY (Use this context for all blueprints):
 We are an end-to-end IT solutions company. Our services include:
 - Proactive IT support and maintenance
-- Device procurement and lifecycle management (Apple products via NeoStore)
+- Device procurement and lifecycle management
 - Security, backups, and infrastructure management
 - Remote support, asset tracking, and monitoring
 - Corporate IT setups, repairs, and troubleshooting
 
 NeoStore (Mumbai) specializes in Apple products, enterprise support, and hardware solutions.
 
+BRANDS & SOLUTIONS WE WORK WITH:
+
+HARDWARE: Apple (MacBook, iMac, iPhone, iPad), Lenovo (ThinkPad, ThinkCentre), Dell (Latitude, OptiPlex, Precision), HP (EliteBook, ProDesk, ZBook)
+
+CLOUD & PRODUCTIVITY: Google Workspace (Gmail, Drive, Meet), Microsoft 365 (Teams, SharePoint, OneDrive), Microsoft Azure
+
+NETWORKING & SECURITY: Cisco (Meraki), Ubiquiti (UniFi), Fortinet (FortiGate), SonicWall
+
+BACKUP & RECOVERY: Veeam, Acronis, Datto
+
+ENDPOINT MANAGEMENT: Jamf (Apple MDM), Microsoft Intune, Kandji
+
+MONITORING: ConnectWise, NinjaRMM, Domotz
+
 KEY VALUE PROPS TO HIGHLIGHT:
 - Preventive IT reduces downtime and hidden costs
 - Long-term IT partner, not just a vendor
 - Quietly reliable, responsive, and accountable
 - Real technical expertise
+- Multi-platform expertise (Apple, Windows, hybrid)
 
-NEVER MENTION:
+STRICT RULES - NEVER MENTION:
 - Pricing, costs, or specific numbers
-- Competitor names
+- Competitor names (only brands we work with)
 - Generic sales language
+- Reference relevant brands based on target industry context
 """
         
         intent_desc = {
