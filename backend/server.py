@@ -67,7 +67,7 @@ async def generate_ai_message(contact: Dict, blueprint: Dict, previous_messages:
 ABOUT OUR COMPANY:
 We are an end-to-end IT solutions company focused on keeping businesses running smoothly, securely, and without disruption. Our core services include:
 - Proactive IT support and maintenance
-- Device procurement and lifecycle management (especially Apple via NeoStore)
+- Device procurement and lifecycle management
 - Security, backups, and infrastructure management
 - Structured processes with clear SLAs
 - Remote support, asset tracking, and monitoring
@@ -78,17 +78,54 @@ NeoStore (our retail/enterprise arm in Mumbai) specializes in:
 - Repairs, maintenance, and troubleshooting
 - Hardware, networking, and security solutions
 
+BRANDS & SOLUTIONS WE WORK WITH:
+
+HARDWARE BRANDS:
+- Apple (iPhone, iPad, MacBook, iMac, Mac Studio, Mac Pro, Apple Watch, AirPods, Vision Pro)
+- Lenovo (ThinkPad, ThinkCentre, ThinkStation, Yoga, IdeaPad, Legion)
+- Dell (Latitude, OptiPlex, Precision, XPS, Vostro, PowerEdge servers)
+- HP (EliteBook, ProBook, ProDesk, EliteDesk, ZBook, Z workstations)
+
+CLOUD & PRODUCTIVITY:
+- Google Workspace (Gmail, Drive, Docs, Sheets, Meet, Calendar, Admin Console)
+- Microsoft 365 (Outlook, Teams, SharePoint, OneDrive, Word, Excel, PowerPoint)
+- Microsoft Azure (VMs, Active Directory, Intune, Defender)
+
+NETWORKING & SECURITY:
+- Cisco (Meraki, Webex, switches, routers, firewalls)
+- Ubiquiti (UniFi access points, switches, security gateways)
+- Fortinet (FortiGate firewalls, FortiClient)
+- SonicWall (firewalls, VPN)
+
+BACKUP & RECOVERY:
+- Veeam (backup, replication, disaster recovery)
+- Acronis (cyber protection, backup)
+- Datto (business continuity, backup appliances)
+
+ENDPOINT MANAGEMENT:
+- Jamf (Apple device management)
+- Microsoft Intune (cross-platform MDM)
+- Kandji (Apple MDM)
+
+MONITORING & SUPPORT:
+- ConnectWise (RMM, PSA, remote support)
+- NinjaRMM (remote monitoring)
+- Domotz (network monitoring)
+
 VALUE PROPOSITION:
 - Preventive IT that reduces downtime and hidden costs
 - Long-term IT partner, not just a vendor
 - Quietly reliable, responsive, and accountable
 - Real technical expertise, not just sales
+- Expertise across Apple, Windows, and hybrid environments
 
 STRICT RULES:
 - NEVER mention pricing, costs, or specific numbers
-- NEVER mention competitor names
+- NEVER mention competitor names (only mention brands we work with)
 - Focus on reducing downtime, operational risk, and business continuity
 - Position as a trusted IT partner, not a vendor
+- Tailor message based on contact's industry and likely tech needs
+- Reference relevant brands/solutions based on context (e.g., Apple for creative industries, Microsoft for enterprise)
 """
         
         # Build context about the contact
