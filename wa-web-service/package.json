@@ -1,0 +1,21 @@
+{
+  "name": "wa-web-service",
+  "version": "1.0.0",
+  "description": "WhatsApp Web connector using Baileys - Microservice for WarmReach",
+  "main": "src/index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js"
+  },
+  "dependencies": {
+    "@whiskeysockets/baileys": "^6.7.5",
+    "express": "^4.18.2",
+    "cors": "^2.8.5",
+    "redis": "^4.6.13",
+    "qrcode": "^1.5.3",
+    "pino": "^8.19.0",
+    "uuid": "^9.0.0",
+    "dotenv": "^16.4.5"
+  }
+}
