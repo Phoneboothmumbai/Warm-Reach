@@ -55,11 +55,11 @@ COMPETITOR_KEYWORDS = [
     # Add specific competitor names if known
 ]
 
-# Pricing keywords that should NOT appear
+# Pricing keywords that should NOT appear (use word boundaries to avoid false positives)
 PRICING_KEYWORDS = [
-    "$", "price", "pricing", "cost", "fee", "rate", "discount",
+    "$", " price ", " pricing ", " fee ", " rate ", " discount ",
     "per month", "per year", "annually", "monthly fee",
-    "quote", "estimate", "budget"
+    " quote ", " estimate ", " budget "
 ]
 
 
