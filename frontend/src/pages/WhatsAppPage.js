@@ -129,8 +129,9 @@ export const WhatsAppPage = () => {
       }
 
       if (webStatusRes.ok) {
-        const webStatus = await webStatusRes.json();
-        setWebEnabled(webStatus.enabled || false);
+        const webStatusData = await webStatusRes.json();
+        setWebEnabled(webStatusData.enabled || false);
+        setWebStatus(webStatusData);
       }
 
       if (webInboxRes.ok) {
