@@ -251,7 +251,8 @@ async function createConnection(tenantId) {
     return sock;
     
   } catch (error) {
-    logger.error(`Error creating connection for ${tenantId}:`, error);
+    logger.error(`Error creating connection for ${tenantId}: ${error.message}`);
+    logger.error(error.stack);
     throw error;
   }
 }
