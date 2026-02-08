@@ -82,6 +82,11 @@ export const SettingsPage = () => {
   const [showAccessToken, setShowAccessToken] = useState(false);
   const [savingWhatsapp, setSavingWhatsapp] = useState(false);
 
+  // IP Whitelist state
+  const [ipWhitelist, setIpWhitelist] = useState({ global_ips: [], tenant_ips: [] });
+  const [newIpAddress, setNewIpAddress] = useState("");
+  const [savingIp, setSavingIp] = useState(false);
+
   const isOwner = user?.role === "owner";
   const isAdmin = user?.role === "admin" || isOwner;
 
@@ -92,11 +97,12 @@ export const SettingsPage = () => {
   const fetchSettings = async () => {
     setLoading(true);
     try {
-      const [tenantRes, usersRes, logsRes, whatsappRes] = await Promise.all([
+      const [tenantRes, usersRes, logsRes, whatsappRes, ipRes] = await Promise.all([
         authFetch(`${API}/settings/tenant`),
         isAdmin ? authFetch(`${API}/settings/users`) : Promise.resolve({ ok: false }),
         isAdmin ? authFetch(`${API}/audit-logs?limit=50`) : Promise.resolve({ ok: false }),
-        isAdmin ? authFetch(`${API}/settings/whatsapp`) : Promise.resolve({ ok: false })
+        isAdmin ? authFetch(`${API}/settings/whatsapp`) : Promise.resolve({ ok: false }),
+        isAdmin ? authFetch(`${API}/settings/ip-whitelist`) : Promise.resolve({ ok: false })
       ]);
 
       if (tenantRes.ok) {
@@ -116,6 +122,10 @@ export const SettingsPage = () => {
         if (waData.phone_number_id) {
           setWhatsappForm(prev => ({ ...prev, phone_number_id: waData.phone_number_id }));
         }
+      }
+      if (ipRes.ok) {
+        const ipData = await ipRes.json();
+        setIpWhitelist(ipData);
       }
     } catch (error) {
       toast.error("Failed to load settings");
