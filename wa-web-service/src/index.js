@@ -49,6 +49,40 @@ const sessionStores = new Map();
 // Rate limiting tracker (tenantId -> { count, resetTime })
 const rateLimits = new Map();
 
+// Reconnection attempt tracker
+const reconnectAttempts = new Map();
+
+// Sync recent chats when connected
+async function syncRecentChats(tenantId, sock) {
+  try {
+    logger.info(`Syncing recent chats for tenant ${tenantId}`);
+    const store = sessionStores.get(tenantId);
+    if (!store) return;
+    
+    // Get recent chats from store
+    const chats = store.chats?.all() || [];
+    
+    for (const chat of chats.slice(0, 20)) {
+      const jid = chat.id;
+      if (!jid || jid.includes('@g.us') || jid.includes('@broadcast')) continue; // Skip groups
+      
+      const phoneNumber = jid.replace('@s.whatsapp.net', '');
+      const name = chat.name || chat.notify || null;
+      
+      // Notify backend about this contact
+      notifyBackend(tenantId, 'contact_sync', {
+        phone_number: phoneNumber,
+        name: name,
+        unread_count: chat.unreadCount || 0
+      });
+    }
+    
+    logger.info(`Synced ${Math.min(chats.length, 20)} chats for tenant ${tenantId}`);
+  } catch (error) {
+    logger.error(`Error syncing chats for ${tenantId}: ${error.message}`);
+  }
+}
+
 // Initialize Redis
 async function initRedis() {
   try {
