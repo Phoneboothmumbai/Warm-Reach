@@ -1812,26 +1812,48 @@ async def generate_batch_messages(
                 continue
             
             try:
-                # Get previous messages for this contact
+                # Get previous messages for this contact AND all recent messages for dedup
                 previous_messages = await get_previous_messages_for_contact(
                     tenant_id, contact["id"], channel
                 )
                 
+                # Also get recently generated messages (last 20) to avoid global duplicates
+                recent_messages = await db.messages.find(
+                    {"tenant_id": tenant_id, "channel": channel},
+                    {"_id": 0, "content": 1}
+                ).sort("created_at", -1).limit(20).to_list(20)
+                recent_contents = [m.get("content", "") for m in recent_messages if m.get("content")]
+                
+                # Combine for deduplication context
+                all_previous = list(set(previous_messages + recent_contents))[:10]
+                
                 # Generate unique message using AI
-                content = await generate_ai_message(contact, blueprint, previous_messages)
+                content = await generate_ai_message(contact, blueprint, all_previous)
                 
                 # Create content hash
                 content_hash = hashlib.md5(content.encode()).hexdigest()
                 
-                # Check for duplicate content
+                # Check for duplicate content (exact match)
                 duplicate = await db.messages.find_one({
                     "tenant_id": tenant_id,
                     "content_hash": content_hash
                 })
-                if duplicate:
-                    # Regenerate with different seed
-                    content = await generate_ai_message(contact, blueprint, previous_messages + [content])
+                
+                # Try regenerating up to 3 times if duplicate
+                regen_attempts = 0
+                while duplicate and regen_attempts < 3:
+                    regen_attempts += 1
+                    logger.info(f"Regenerating message (attempt {regen_attempts}) due to duplicate")
+                    content = await generate_ai_message(contact, blueprint, all_previous + [content])
                     content_hash = hashlib.md5(content.encode()).hexdigest()
+                    duplicate = await db.messages.find_one({
+                        "tenant_id": tenant_id,
+                        "content_hash": content_hash
+                    })
+                
+                if duplicate:
+                    errors.append(f"Could not generate unique message for {contact['email']}")
+                    continue
                 
                 message = Message(
                     tenant_id=tenant_id,
