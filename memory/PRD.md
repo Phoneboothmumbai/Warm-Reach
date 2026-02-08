@@ -219,3 +219,78 @@ User reported issues with the original message generation:
 - WhatsApp requires real Meta Business API credentials to send messages
 - Users obtain credentials from Meta Developer Dashboard
 - AWS SES and LinkedIn integrations still planned for future
+
+---
+
+## Update: Parallel WhatsApp Integration (Dec 2025)
+
+### Architecture: Two Completely Separate WhatsApp Paths
+
+```
+WhatsApp Layer
+│
+├── Cloud API Connector (Primary, Safe)
+│   ├── API-based sending via Meta Graph API
+│   ├── Webhook-based receiving
+│   └── Collections: wa_cloud_messages, wa_cloud_contacts
+│
+└── WhatsApp Web Connector (Secondary, Risk-Gated)
+    ├── QR Scan Authentication via Baileys
+    ├── Node.js Microservice (wa-web-service)
+    ├── Redis for session storage
+    └── Collections: wa_web_messages, wa_web_contacts, wa_web_sessions
+```
+
+### Key Design Decisions
+1. **Complete Data Isolation**: Cloud API and Web have separate database collections
+2. **No Data Sync**: Messages never cross between integrations
+3. **Separate Inboxes**: Each integration has its own chat view
+4. **Risk Controls for Web**: Requires explicit risk acceptance, stricter rate limits
+
+### Cloud API Endpoints (Phase 1 - Complete)
+- `POST /api/wa/cloud/send` - Send message via Cloud API
+- `GET /api/wa/cloud/inbox` - Get Cloud API contacts
+- `GET /api/wa/cloud/chat/{contact_id}` - Get chat thread
+- `GET/POST /api/whatsapp/webhook` - Webhook for message status/receiving
+
+### WhatsApp Web Endpoints (Phase 2 - Complete)
+- `GET /api/wa/web/status` - Get Web session status
+- `POST /api/wa/web/enable` - Enable Web integration (owner only)
+- `POST /api/wa/web/disable` - Disable Web integration
+- `POST /api/wa/web/start` - Start QR login (requires risk acceptance)
+- `POST /api/wa/web/disconnect` - Disconnect session
+- `POST /api/wa/web/send` - Send message via Web
+- `GET /api/wa/web/inbox` - Get Web contacts
+- `GET /api/wa/web/chat/{contact_id}` - Get chat thread
+- `POST /api/wa/web/webhook` - Internal webhook from Node.js service
+
+### Node.js Microservice (wa-web-service)
+- Location: `/app/wa-web-service/`
+- Uses Baileys (@whiskeysockets/baileys) for WhatsApp Web
+- Redis for session persistence
+- Rate limit: 20 messages/hour (stricter than Cloud API)
+- Endpoints: `/session/:tenantId/start`, `/session/:tenantId/disconnect`, `/session/:tenantId/send`
+
+### Database Collections Added
+- `wa_cloud_messages` - Cloud API messages
+- `wa_cloud_contacts` - Cloud API contacts
+- `wa_web_messages` - WhatsApp Web messages
+- `wa_web_contacts` - WhatsApp Web contacts
+- `wa_web_sessions` - WhatsApp Web session state
+
+### Risk Controls for WhatsApp Web
+- ✅ Feature disabled by default
+- ✅ Owner-only enable/disable
+- ✅ Mandatory risk acceptance checkbox
+- ✅ Prominent ban warning in UI
+- ✅ Stricter rate limits (20/hour vs 10/day)
+- ✅ Kill switch capability (disable endpoint)
+
+### Frontend Updates
+- New WhatsApp page (`/whatsapp`) with two tabs:
+  - "Cloud API" tab - Primary, official integration
+  - "Web Login" tab - Secondary, risk-gated integration
+- Each tab has separate inbox view
+- Integration type badge on each chat
+- Connected phone number displayed per inbox
+
