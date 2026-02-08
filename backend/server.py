@@ -1397,7 +1397,14 @@ async def generate_ai_blueprint_endpoint(
     if current_user["role"] not in [UserRole.OWNER, UserRole.ADMIN]:
         raise HTTPException(status_code=403, detail="Only owners and admins can generate blueprints")
     
-    # Generate blueprint using AI
+    # Get existing blueprints for deduplication
+    existing = await db.blueprints.find(
+        {"tenant_id": current_user["tenant_id"]},
+        {"_id": 0, "structure": 1}
+    ).limit(20).to_list(20)
+    existing_structures = [b.get("structure", "") for b in existing if b.get("structure")]
+    
+    # Generate blueprint using AI with existing context
     ai_result = await generate_ai_blueprint(
         channel=request.channel,
         intent=request.intent,
@@ -1405,7 +1412,8 @@ async def generate_ai_blueprint_endpoint(
         tone=request.tone,
         industry=request.industry,
         target_role=request.target_role,
-        additional_context=request.additional_context
+        additional_context=request.additional_context,
+        existing_blueprints=existing_structures
     )
     
     # Create blueprint (not approved by default)
@@ -1446,6 +1454,13 @@ async def generate_batch_ai_blueprints(
     if current_user["role"] not in [UserRole.OWNER, UserRole.ADMIN]:
         raise HTTPException(status_code=403, detail="Only owners and admins can generate blueprints")
     
+    # Get existing blueprints for deduplication
+    existing = await db.blueprints.find(
+        {"tenant_id": current_user["tenant_id"]},
+        {"_id": 0, "structure": 1}
+    ).limit(30).to_list(30)
+    existing_structures = [b.get("structure", "") for b in existing if b.get("structure")]
+    
     generated = []
     errors = []
     
@@ -1453,14 +1468,15 @@ async def generate_batch_ai_blueprints(
         for intent in request.intents:
             for angle in request.angles:
                 try:
-                    # Generate blueprint using AI
+                    # Generate blueprint using AI with existing context
                     ai_result = await generate_ai_blueprint(
                         channel=channel,
                         intent=intent,
                         angle=angle,
                         tone=request.tone,
                         industry=request.industry,
-                        target_role=request.target_role
+                        target_role=request.target_role,
+                        existing_blueprints=existing_structures + [g.get("structure", "") for g in generated]
                     )
                     
                     # Create blueprint (not approved by default)
