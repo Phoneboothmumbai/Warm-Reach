@@ -157,7 +157,7 @@ OUTPUT: Generate ONLY the message text. No subject lines, no labels, no explanat
         # Use GPT-5.2 model with temperature for variation
         llm_chat = llm_chat.with_model("openai", "gpt-5.2")
         
-        response = llm_chat.send_message(prompt)
+        response = await llm_chat.send_message(prompt)
         
         return response.strip()
         
