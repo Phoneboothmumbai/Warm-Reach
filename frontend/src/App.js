@@ -10,6 +10,7 @@ import { ContactsPage } from "@/pages/ContactsPage";
 import { BlueprintsPage } from "@/pages/BlueprintsPage";
 import { MessagesPage } from "@/pages/MessagesPage";
 import { InboxPage } from "@/pages/InboxPage";
+import { WhatsAppPage } from "@/pages/WhatsAppPage";
 import { SettingsPage } from "@/pages/SettingsPage";
 import { MainLayout } from "@/layouts/MainLayout";
 
