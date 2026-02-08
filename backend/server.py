@@ -2254,9 +2254,13 @@ async def delete_whatsapp_settings(current_user: Dict = Depends(get_current_user
     
     return {"message": "WhatsApp configuration removed"}
 
-@api_router.post("/whatsapp/send")
-async def send_whatsapp_message(
-    request: WhatsAppSendRequest,
+# ========================
+# WHATSAPP CLOUD API ROUTES
+# ========================
+
+@api_router.post("/wa/cloud/send")
+async def send_wa_cloud_message(
+    request: WACloudSendRequest,
     current_user: Dict = Depends(get_current_user)
 ):
     """Send a WhatsApp message using the Business Cloud API."""
@@ -2267,7 +2271,7 @@ async def send_whatsapp_message(
     )
     
     if not wa_config:
-        raise HTTPException(status_code=400, detail="WhatsApp is not configured. Please add your API credentials in Settings.")
+        raise HTTPException(status_code=400, detail="WhatsApp Cloud API is not configured. Please add your API credentials in Settings.")
     
     # Check rate limit
     can_send, remaining = await check_rate_limit(current_user["tenant_id"], Channel.WHATSAPP)
@@ -2276,26 +2280,78 @@ async def send_whatsapp_message(
     
     # Format phone number (remove + and spaces)
     to_phone = re.sub(r'[^\d]', '', request.to_phone)
+    connected_number = wa_config.get("phone_number_id", "")
+    
+    # Create message record first (pending status)
+    message = WACloudMessage(
+        tenant_id=current_user["tenant_id"],
+        contact_id="",  # Will be updated
+        phone_number=to_phone,
+        connected_number=connected_number,
+        direction="outbound",
+        content=request.message,
+        message_type="template" if request.template_name else "text",
+        template_name=request.template_name,
+        status=WACloudMessageStatus.PENDING
+    )
+    
+    # Find or create contact in wa_cloud_contacts
+    contact = await db.wa_cloud_contacts.find_one(
+        {
+            "tenant_id": current_user["tenant_id"],
+            "connected_number": connected_number,
+            "phone_number": to_phone
+        },
+        {"_id": 0}
+    )
+    
+    if not contact:
+        new_contact = WACloudContact(
+            tenant_id=current_user["tenant_id"],
+            connected_number=connected_number,
+            phone_number=to_phone
+        )
+        contact_doc = new_contact.model_dump()
+        contact_doc['created_at'] = contact_doc['created_at'].isoformat()
+        await db.wa_cloud_contacts.insert_one(contact_doc)
+        message.contact_id = new_contact.id
+    else:
+        message.contact_id = contact["id"]
     
     import httpx
     
     try:
         async with httpx.AsyncClient() as client:
+            # Build request payload
+            if request.template_name:
+                # Template message (required for first contact)
+                payload = {
+                    "messaging_product": "whatsapp",
+                    "recipient_type": "individual",
+                    "to": to_phone,
+                    "type": "template",
+                    "template": {
+                        "name": request.template_name,
+                        "language": {"code": "en"}
+                    }
+                }
+            else:
+                # Regular text message
+                payload = {
+                    "messaging_product": "whatsapp",
+                    "recipient_type": "individual",
+                    "to": to_phone,
+                    "type": "text",
+                    "text": {"body": request.message}
+                }
+            
             response = await client.post(
                 f"https://graph.facebook.com/v19.0/{wa_config['phone_number_id']}/messages",
                 headers={
                     "Authorization": f"Bearer {wa_config['access_token']}",
                     "Content-Type": "application/json"
                 },
-                json={
-                    "messaging_product": "whatsapp",
-                    "recipient_type": "individual",
-                    "to": to_phone,
-                    "type": "text",
-                    "text": {
-                        "body": request.message
-                    }
-                },
+                json=payload,
                 timeout=30.0
             )
             
@@ -2303,28 +2359,146 @@ async def send_whatsapp_message(
             
             if response.status_code != 200:
                 error_msg = response_data.get("error", {}).get("message", "Failed to send message")
-                logger.error(f"WhatsApp send failed: {error_msg}")
-                raise HTTPException(status_code=400, detail=f"WhatsApp API error: {error_msg}")
+                message.status = WACloudMessageStatus.FAILED
+                message.error_message = error_msg
+                logger.error(f"WhatsApp Cloud API send failed: {error_msg}")
+            else:
+                wa_message_id = response_data.get("messages", [{}])[0].get("id")
+                message.wa_message_id = wa_message_id
+                message.status = WACloudMessageStatus.SENT
+                message.sent_at = datetime.now(timezone.utc)
             
-            # Log successful send
-            await log_audit(
-                current_user["tenant_id"],
-                current_user["id"],
-                "send",
-                "whatsapp",
-                to_phone,
-                {"message_id": response_data.get("messages", [{}])[0].get("id")}
+            # Save message to wa_cloud_messages
+            message_doc = message.model_dump()
+            for key in ['created_at', 'sent_at', 'delivered_at', 'read_at']:
+                if message_doc.get(key):
+                    message_doc[key] = message_doc[key].isoformat() if isinstance(message_doc[key], datetime) else message_doc[key]
+            await db.wa_cloud_messages.insert_one(message_doc)
+            
+            # Update contact's last message
+            await db.wa_cloud_contacts.update_one(
+                {"id": message.contact_id},
+                {
+                    "$set": {
+                        "last_message_at": datetime.now(timezone.utc).isoformat(),
+                        "last_message_preview": request.message[:50]
+                    }
+                }
             )
+            
+            if message.status == WACloudMessageStatus.FAILED:
+                raise HTTPException(status_code=400, detail=f"WhatsApp API error: {message.error_message}")
             
             return {
                 "success": True,
-                "message_id": response_data.get("messages", [{}])[0].get("id"),
-                "rate_limit_remaining": remaining - 1
+                "message_id": message.id,
+                "wa_message_id": message.wa_message_id,
+                "rate_limit_remaining": remaining - 1,
+                "integration_type": "cloud_api"
             }
             
     except httpx.RequestError as e:
         logger.error(f"WhatsApp request error: {e}")
+        message.status = WACloudMessageStatus.FAILED
+        message.error_message = str(e)
+        message_doc = message.model_dump()
+        message_doc['created_at'] = message_doc['created_at'].isoformat()
+        await db.wa_cloud_messages.insert_one(message_doc)
         raise HTTPException(status_code=500, detail=f"Failed to connect to WhatsApp API: {str(e)}")
+
+@api_router.get("/wa/cloud/inbox")
+async def get_wa_cloud_inbox(
+    current_user: Dict = Depends(get_current_user),
+    skip: int = 0,
+    limit: int = 50
+):
+    """Get WhatsApp Cloud API inbox - list of contacts with recent messages."""
+    wa_config = await db.whatsapp_config.find_one(
+        {"tenant_id": current_user["tenant_id"]},
+        {"_id": 0}
+    )
+    
+    if not wa_config:
+        return WACloudInboxResponse(
+            contacts=[],
+            connected_number="Not configured",
+            integration_type="cloud_api"
+        )
+    
+    connected_number = wa_config.get("phone_number_id", "")
+    
+    # Get contacts sorted by last message
+    contacts = await db.wa_cloud_contacts.find(
+        {
+            "tenant_id": current_user["tenant_id"],
+            "connected_number": connected_number
+        },
+        {"_id": 0}
+    ).sort("last_message_at", -1).skip(skip).limit(limit).to_list(limit)
+    
+    return {
+        "contacts": contacts,
+        "connected_number": connected_number,
+        "integration_type": "cloud_api"
+    }
+
+@api_router.get("/wa/cloud/chat/{contact_id}")
+async def get_wa_cloud_chat(
+    contact_id: str,
+    current_user: Dict = Depends(get_current_user),
+    skip: int = 0,
+    limit: int = 100
+):
+    """Get chat thread for a specific Cloud API contact."""
+    # Verify contact belongs to tenant
+    contact = await db.wa_cloud_contacts.find_one(
+        {"id": contact_id, "tenant_id": current_user["tenant_id"]},
+        {"_id": 0}
+    )
+    
+    if not contact:
+        raise HTTPException(status_code=404, detail="Contact not found")
+    
+    # Get messages for this contact
+    messages = await db.wa_cloud_messages.find(
+        {
+            "tenant_id": current_user["tenant_id"],
+            "contact_id": contact_id
+        },
+        {"_id": 0}
+    ).sort("created_at", 1).skip(skip).limit(limit).to_list(limit)
+    
+    # Mark messages as read
+    await db.wa_cloud_messages.update_many(
+        {
+            "contact_id": contact_id,
+            "direction": "inbound",
+            "status": {"$ne": WACloudMessageStatus.READ}
+        },
+        {"$set": {"status": WACloudMessageStatus.READ, "read_at": datetime.now(timezone.utc).isoformat()}}
+    )
+    
+    # Reset unread count
+    await db.wa_cloud_contacts.update_one(
+        {"id": contact_id},
+        {"$set": {"unread_count": 0}}
+    )
+    
+    return {
+        "contact": contact,
+        "messages": messages,
+        "integration_type": "cloud_api"
+    }
+
+# Legacy endpoint for backward compatibility
+@api_router.post("/whatsapp/send")
+async def send_whatsapp_message(
+    request: WhatsAppSendRequest,
+    current_user: Dict = Depends(get_current_user)
+):
+    """Legacy endpoint - redirects to Cloud API send."""
+    cloud_request = WACloudSendRequest(to_phone=request.to_phone, message=request.message)
+    return await send_wa_cloud_message(cloud_request, current_user)
 
 # ========================
 # WHATSAPP WEBHOOK ROUTES
