@@ -334,6 +334,18 @@ export const MessagesPage = () => {
                     <><Square className="w-4 h-4 mr-2" /> Select All</>
                   )}
                 </Button>
+                {selectedMessages.length > 0 && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleBulkDeleteMessages(selectedMessages)}
+                    className="text-destructive hover:bg-destructive/10"
+                    data-testid="delete-selected-btn"
+                  >
+                    <Trash2 className="w-4 h-4 mr-2" />
+                    Delete ({selectedMessages.length})
+                  </Button>
+                )}
                 <Button
                   onClick={() => handleApproveMessages(
                     selectedMessages.length > 0 ? selectedMessages : pendingMessages.map(m => m.id)
