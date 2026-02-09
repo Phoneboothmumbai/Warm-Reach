@@ -2269,14 +2269,13 @@ async def schedule_messages_bulk(
     data: BulkMessageSchedule,
     current_user: Dict = Depends(get_current_user)
 ):
-    """Schedule multiple messages with interval spacing (min 60 min between same contact)"""
+    """Schedule multiple messages with random 30-60 min gaps to avoid platform bans"""
     scheduled_count = 0
     errors = []
     scheduled_times = []
-    min_gap_minutes = 60
     
-    # Track scheduled times per contact to enforce 60-min gap
-    contact_schedule_times = {}
+    # Track the last scheduled time globally (for all contacts)
+    last_scheduled_time = data.scheduled_at
     
     for i, message_id in enumerate(data.message_ids):
         message = await db.messages.find_one(
@@ -2304,35 +2303,16 @@ async def schedule_messages_bulk(
             errors.append(f"Message to {contact_id} already sent")
             continue
         
-        # Calculate scheduled time - ensure 60 min gap for same contact
-        base_time = data.scheduled_at + timedelta(minutes=data.interval_minutes * i)
+        # For first message, use the base time
+        # For subsequent messages, add random gap of 30-60 minutes
+        if i == 0:
+            scheduled_time = last_scheduled_time
+        else:
+            # Random gap between 30-60 minutes to avoid bans
+            random_gap = random.randint(30, 60)
+            scheduled_time = last_scheduled_time + timedelta(minutes=random_gap)
         
-        # Check existing scheduled messages for this contact
-        if contact_id in contact_schedule_times:
-            last_time = contact_schedule_times[contact_id]
-            time_diff = (base_time - last_time).total_seconds() / 60
-            if time_diff < min_gap_minutes:
-                # Push this message to at least 60 min after last one
-                base_time = last_time + timedelta(minutes=min_gap_minutes)
-        
-        # Also check DB for other scheduled messages to this contact
-        other_scheduled = await db.messages.find({
-            "tenant_id": current_user["tenant_id"],
-            "contact_id": contact_id,
-            "id": {"$ne": message_id},
-            "status": MessageStatus.SCHEDULED,
-            "scheduled_at": {"$ne": None}
-        }).to_list(100)
-        
-        for other_msg in other_scheduled:
-            other_time = datetime.fromisoformat(other_msg["scheduled_at"].replace("Z", "+00:00"))
-            time_diff = abs((base_time - other_time).total_seconds() / 60)
-            if time_diff < min_gap_minutes:
-                # Adjust time to be after existing scheduled message
-                base_time = other_time + timedelta(minutes=min_gap_minutes)
-        
-        scheduled_time = base_time
-        contact_schedule_times[contact_id] = scheduled_time
+        last_scheduled_time = scheduled_time
         
         await db.messages.update_one(
             {"id": message_id},
@@ -2345,14 +2325,19 @@ async def schedule_messages_bulk(
         )
         
         scheduled_count += 1
-        scheduled_times.append({"message_id": message_id, "scheduled_at": scheduled_time.isoformat()})
+        scheduled_times.append({
+            "message_id": message_id, 
+            "scheduled_at": scheduled_time.isoformat(),
+            "contact_id": contact_id
+        })
     
     await log_audit(current_user["tenant_id"], current_user["id"], "bulk_schedule", "message", ",".join(data.message_ids))
     
     return {
         "scheduled_count": scheduled_count,
         "errors": errors,
-        "scheduled_times": scheduled_times
+        "scheduled_times": scheduled_times,
+        "note": "Messages scheduled with random 30-60 minute gaps to avoid platform bans"
     }
 
 @api_router.put("/messages/{message_id}/content")
