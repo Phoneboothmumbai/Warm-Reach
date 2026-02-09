@@ -772,6 +772,11 @@ class MessageSchedule(BaseModel):
     message_id: str
     scheduled_at: datetime
 
+class BulkMessageSchedule(BaseModel):
+    message_ids: List[str]
+    scheduled_at: datetime
+    interval_minutes: int = 5  # Spread messages with this interval
+
 class ReplyBase(BaseModel):
     message_id: str
     content: str
