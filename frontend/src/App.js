@@ -148,6 +148,30 @@ const ProtectedRoute = ({ children }) => {
   return children;
 };
 
+// Super Admin Route Component
+const SuperAdminRoute = ({ children }) => {
+  const { user, loading } = useAuth();
+  const location = useLocation();
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="animate-pulse text-muted-foreground">Loading...</div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <Navigate to="/login" state={{ from: location }} replace />;
+  }
+
+  if (!user.is_super_admin) {
+    return <Navigate to="/app/dashboard" replace />;
+  }
+
+  return children;
+};
+
 // Theme Provider
 const ThemeProvider = ({ children }) => {
   useEffect(() => {
