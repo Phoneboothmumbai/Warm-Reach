@@ -2220,6 +2220,54 @@ async def unschedule_message(
     
     return {"message": "Schedule removed"}
 
+@api_router.post("/messages/schedule-bulk")
+async def schedule_messages_bulk(
+    data: BulkMessageSchedule,
+    current_user: Dict = Depends(get_current_user)
+):
+    """Schedule multiple messages with interval spacing"""
+    scheduled_count = 0
+    errors = []
+    scheduled_times = []
+    
+    for i, message_id in enumerate(data.message_ids):
+        message = await db.messages.find_one(
+            {"id": message_id, "tenant_id": current_user["tenant_id"]},
+            {"_id": 0}
+        )
+        
+        if not message:
+            errors.append(f"Message {message_id} not found")
+            continue
+        
+        if message["status"] not in [MessageStatus.APPROVED, MessageStatus.DRAFT, MessageStatus.PENDING_APPROVAL, MessageStatus.SCHEDULED]:
+            errors.append(f"Message {message_id} cannot be scheduled")
+            continue
+        
+        # Calculate scheduled time with interval
+        scheduled_time = data.scheduled_at + timedelta(minutes=data.interval_minutes * i)
+        
+        await db.messages.update_one(
+            {"id": message_id},
+            {
+                "$set": {
+                    "status": MessageStatus.SCHEDULED,
+                    "scheduled_at": scheduled_time.isoformat()
+                }
+            }
+        )
+        
+        scheduled_count += 1
+        scheduled_times.append({"message_id": message_id, "scheduled_at": scheduled_time.isoformat()})
+    
+    await log_audit(current_user["tenant_id"], current_user["id"], "bulk_schedule", "message", ",".join(data.message_ids))
+    
+    return {
+        "scheduled_count": scheduled_count,
+        "errors": errors,
+        "scheduled_times": scheduled_times
+    }
+
 @api_router.put("/messages/{message_id}/content")
 async def update_message_content(
     message_id: str,
