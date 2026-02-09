@@ -2258,10 +2258,14 @@ async def schedule_messages_bulk(
     data: BulkMessageSchedule,
     current_user: Dict = Depends(get_current_user)
 ):
-    """Schedule multiple messages with interval spacing"""
+    """Schedule multiple messages with interval spacing (min 60 min between same contact)"""
     scheduled_count = 0
     errors = []
     scheduled_times = []
+    min_gap_minutes = 60
+    
+    # Track scheduled times per contact to enforce 60-min gap
+    contact_schedule_times = {}
     
     for i, message_id in enumerate(data.message_ids):
         message = await db.messages.find_one(
@@ -2277,8 +2281,47 @@ async def schedule_messages_bulk(
             errors.append(f"Message {message_id} cannot be scheduled")
             continue
         
-        # Calculate scheduled time with interval
-        scheduled_time = data.scheduled_at + timedelta(minutes=data.interval_minutes * i)
+        contact_id = message.get("contact_id")
+        
+        # Check if message already sent to this contact
+        existing_sent = await db.messages.find_one({
+            "id": message_id,
+            "contact_id": contact_id,
+            "status": {"$in": ["sent", "delivered"]}
+        })
+        if existing_sent:
+            errors.append(f"Message to {contact_id} already sent")
+            continue
+        
+        # Calculate scheduled time - ensure 60 min gap for same contact
+        base_time = data.scheduled_at + timedelta(minutes=data.interval_minutes * i)
+        
+        # Check existing scheduled messages for this contact
+        if contact_id in contact_schedule_times:
+            last_time = contact_schedule_times[contact_id]
+            time_diff = (base_time - last_time).total_seconds() / 60
+            if time_diff < min_gap_minutes:
+                # Push this message to at least 60 min after last one
+                base_time = last_time + timedelta(minutes=min_gap_minutes)
+        
+        # Also check DB for other scheduled messages to this contact
+        other_scheduled = await db.messages.find({
+            "tenant_id": current_user["tenant_id"],
+            "contact_id": contact_id,
+            "id": {"$ne": message_id},
+            "status": MessageStatus.SCHEDULED,
+            "scheduled_at": {"$ne": None}
+        }).to_list(100)
+        
+        for other_msg in other_scheduled:
+            other_time = datetime.fromisoformat(other_msg["scheduled_at"].replace("Z", "+00:00"))
+            time_diff = abs((base_time - other_time).total_seconds() / 60)
+            if time_diff < min_gap_minutes:
+                # Adjust time to be after existing scheduled message
+                base_time = other_time + timedelta(minutes=min_gap_minutes)
+        
+        scheduled_time = base_time
+        contact_schedule_times[contact_id] = scheduled_time
         
         await db.messages.update_one(
             {"id": message_id},
