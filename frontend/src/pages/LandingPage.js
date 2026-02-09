@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -21,8 +21,27 @@ import {
   Sparkles
 } from "lucide-react";
 
+const API = process.env.REACT_APP_BACKEND_URL;
+
 const LandingPage = () => {
   const navigate = useNavigate();
+  const [plans, setPlans] = useState([]);
+
+  useEffect(() => {
+    fetchPlans();
+  }, []);
+
+  const fetchPlans = async () => {
+    try {
+      const res = await fetch(`${API}/api/plans`);
+      if (res.ok) {
+        const data = await res.json();
+        setPlans(data);
+      }
+    } catch (error) {
+      console.error("Failed to fetch plans:", error);
+    }
+  };
 
   const problems = [
     {
