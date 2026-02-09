@@ -14,6 +14,7 @@ import { InboxPage } from "@/pages/InboxPage";
 import { WhatsAppPage } from "@/pages/WhatsAppPage";
 import { SettingsPage } from "@/pages/SettingsPage";
 import { MainLayout } from "@/layouts/MainLayout";
+import SuperAdminPage from "@/pages/SuperAdminPage";
 
 // API Config
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
