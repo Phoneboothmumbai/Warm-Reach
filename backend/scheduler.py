@@ -4,6 +4,7 @@ Automatically sends scheduled messages when their time is due.
 """
 import asyncio
 import logging
+import uuid
 from datetime import datetime, timezone
 from motor.motor_asyncio import AsyncIOMotorClient
 import httpx
