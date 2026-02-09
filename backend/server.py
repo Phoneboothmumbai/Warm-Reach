@@ -3970,7 +3970,7 @@ async def get_tenant_users(current_user: Dict = Depends(get_current_user)):
     return [UserResponse(
         id=u["id"], email=u["email"], first_name=u["first_name"],
         last_name=u["last_name"], role=u["role"], tenant_id=u["tenant_id"],
-        is_active=u.get("is_active", True)
+        is_active=u.get("is_active", True), is_super_admin=u.get("is_super_admin", False)
     ) for u in users]
 
 @api_router.get("/audit-logs")
