@@ -4311,6 +4311,174 @@ async def make_super_admin(
     )
     return {"message": f"User {user_email} is now a super admin"}
 
+# ==================== CMS/PAGES ENDPOINTS ====================
+
+class PageCreate(BaseModel):
+    slug: str
+    title: str
+    content: str
+    is_published: bool = True
+    meta_description: Optional[str] = None
+
+class Page(PageCreate):
+    model_config = ConfigDict(extra="ignore")
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+# Public: Get page by slug
+@api_router.get("/pages/{slug}")
+async def get_page(slug: str):
+    page = await db.pages.find_one({"slug": slug, "is_published": True}, {"_id": 0})
+    if not page:
+        raise HTTPException(status_code=404, detail="Page not found")
+    return page
+
+# Super Admin: Get all pages
+@api_router.get("/admin/pages")
+async def admin_get_pages(current_user: Dict = Depends(get_super_admin)):
+    pages = await db.pages.find({}, {"_id": 0}).sort("slug", 1).to_list(100)
+    return pages
+
+# Super Admin: Create page
+@api_router.post("/admin/pages")
+async def admin_create_page(page: PageCreate, current_user: Dict = Depends(get_super_admin)):
+    # Check if slug already exists
+    existing = await db.pages.find_one({"slug": page.slug})
+    if existing:
+        raise HTTPException(status_code=400, detail="Page with this slug already exists")
+    
+    page_dict = page.model_dump()
+    page_dict["id"] = str(uuid.uuid4())
+    page_dict["created_at"] = datetime.now(timezone.utc).isoformat()
+    page_dict["updated_at"] = datetime.now(timezone.utc).isoformat()
+    await db.pages.insert_one(page_dict)
+    return {**page_dict, "_id": None}
+
+# Super Admin: Update page
+@api_router.put("/admin/pages/{page_id}")
+async def admin_update_page(page_id: str, page: PageCreate, current_user: Dict = Depends(get_super_admin)):
+    existing = await db.pages.find_one({"id": page_id})
+    if not existing:
+        raise HTTPException(status_code=404, detail="Page not found")
+    
+    # Check if new slug conflicts with another page
+    if page.slug != existing.get("slug"):
+        slug_conflict = await db.pages.find_one({"slug": page.slug, "id": {"$ne": page_id}})
+        if slug_conflict:
+            raise HTTPException(status_code=400, detail="Page with this slug already exists")
+    
+    update_data = page.model_dump()
+    update_data["updated_at"] = datetime.now(timezone.utc).isoformat()
+    await db.pages.update_one({"id": page_id}, {"$set": update_data})
+    return {"message": "Page updated"}
+
+# Super Admin: Delete page
+@api_router.delete("/admin/pages/{page_id}")
+async def admin_delete_page(page_id: str, current_user: Dict = Depends(get_super_admin)):
+    result = await db.pages.delete_one({"id": page_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Page not found")
+    return {"message": "Page deleted"}
+
+# Initialize default pages
+async def init_default_pages():
+    count = await db.pages.count_documents({})
+    if count == 0:
+        default_pages = [
+            {
+                "id": str(uuid.uuid4()),
+                "slug": "privacy-policy",
+                "title": "Privacy Policy",
+                "content": """# Privacy Policy
+
+Last updated: February 2026
+
+## Introduction
+WarmReach ("we", "our", or "us") is committed to protecting your privacy. This Privacy Policy explains how we collect, use, and safeguard your information.
+
+## Information We Collect
+- **Account Information**: Email, name, company details
+- **Contact Data**: Contacts you upload for outreach
+- **Usage Data**: How you use our platform
+
+## How We Use Your Information
+- To provide and improve our services
+- To send messages on your behalf
+- To communicate with you about your account
+
+## Data Security
+We implement appropriate security measures to protect your data.
+
+## Contact Us
+For privacy-related questions, contact us at support@warmreach.in""",
+                "is_published": True,
+                "meta_description": "WarmReach Privacy Policy",
+                "created_at": datetime.now(timezone.utc).isoformat(),
+                "updated_at": datetime.now(timezone.utc).isoformat()
+            },
+            {
+                "id": str(uuid.uuid4()),
+                "slug": "terms-of-service",
+                "title": "Terms of Service",
+                "content": """# Terms of Service
+
+Last updated: February 2026
+
+## Acceptance of Terms
+By using WarmReach, you agree to these terms.
+
+## Service Description
+WarmReach provides automated outreach services for businesses.
+
+## User Responsibilities
+- Maintain accurate contact information
+- Comply with applicable laws
+- Not use the service for spam
+
+## Limitations
+We are not liable for any indirect damages.
+
+## Changes to Terms
+We may update these terms periodically.
+
+## Contact
+Questions? Email us at support@warmreach.in""",
+                "is_published": True,
+                "meta_description": "WarmReach Terms of Service",
+                "created_at": datetime.now(timezone.utc).isoformat(),
+                "updated_at": datetime.now(timezone.utc).isoformat()
+            },
+            {
+                "id": str(uuid.uuid4()),
+                "slug": "contact",
+                "title": "Contact Us",
+                "content": """# Contact Us
+
+We'd love to hear from you!
+
+## Get in Touch
+
+**Email**: support@warmreach.in
+
+**Address**: Mumbai, India
+
+## Business Hours
+Monday - Friday: 9:00 AM - 6:00 PM IST
+
+## Response Time
+We typically respond within 24 hours.""",
+                "is_published": True,
+                "meta_description": "Contact WarmReach",
+                "created_at": datetime.now(timezone.utc).isoformat(),
+                "updated_at": datetime.now(timezone.utc).isoformat()
+            }
+        ]
+        await db.pages.insert_many(default_pages)
+        logger.info("Default pages created")
+
+# ==================== END CMS ENDPOINTS ====================
+
 # Initialize default plans if none exist
 async def init_default_plans():
     count = await db.plans.count_documents({})
