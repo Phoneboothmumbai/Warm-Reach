@@ -646,6 +646,7 @@ class UserResponse(BaseModel):
     role: UserRole
     tenant_id: str
     is_active: bool
+    is_super_admin: bool = False
 
 class TokenResponse(BaseModel):
     access_token: str
