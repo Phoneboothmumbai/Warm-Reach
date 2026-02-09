@@ -250,6 +250,121 @@ export const MessagesPage = () => {
     }
   };
 
+  const handleScheduleMessage = async () => {
+    if (!selectedMessage || !scheduleForm.date || !scheduleForm.time) {
+      toast.error("Please select date and time");
+      return;
+    }
+
+    try {
+      const scheduledAt = new Date(`${scheduleForm.date}T${scheduleForm.time}`).toISOString();
+      const response = await authFetch(
+        `${API}/messages/${selectedMessage.id}/reschedule?scheduled_at=${encodeURIComponent(scheduledAt)}`,
+        { method: "PUT" }
+      );
+
+      if (response.ok) {
+        toast.success("Message scheduled");
+        setScheduleDialogOpen(false);
+        setSelectedMessage(null);
+        fetchData();
+      } else {
+        const error = await response.json();
+        toast.error(error.detail || "Failed to schedule message");
+      }
+    } catch (error) {
+      toast.error("Failed to schedule message");
+    }
+  };
+
+  const handleBulkSchedule = async () => {
+    if (selectedMessages.length === 0) {
+      toast.error("No messages selected");
+      return;
+    }
+    if (!scheduleForm.date || !scheduleForm.time) {
+      toast.error("Please select date and time");
+      return;
+    }
+
+    try {
+      const scheduledAt = new Date(`${scheduleForm.date}T${scheduleForm.time}`).toISOString();
+      const response = await authFetch(`${API}/messages/schedule-bulk`, {
+        method: "POST",
+        body: JSON.stringify({
+          message_ids: selectedMessages,
+          scheduled_at: scheduledAt,
+          interval_minutes: scheduleForm.interval || 5
+        })
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        toast.success(`Scheduled ${result.scheduled_count} message(s)`);
+        setBulkScheduleDialogOpen(false);
+        setSelectedMessages([]);
+        fetchData();
+      } else {
+        const error = await response.json();
+        toast.error(error.detail || "Failed to schedule messages");
+      }
+    } catch (error) {
+      toast.error("Failed to schedule messages");
+    }
+  };
+
+  const handleUnschedule = async (messageId) => {
+    try {
+      const response = await authFetch(`${API}/messages/${messageId}/unschedule`, {
+        method: "DELETE"
+      });
+
+      if (response.ok) {
+        toast.success("Schedule removed");
+        fetchData();
+      } else {
+        const error = await response.json();
+        toast.error(error.detail || "Failed to remove schedule");
+      }
+    } catch (error) {
+      toast.error("Failed to remove schedule");
+    }
+  };
+
+  const openScheduleDialog = (message) => {
+    setSelectedMessage(message);
+    // Pre-fill with existing schedule if available
+    if (message.scheduled_at) {
+      const dt = new Date(message.scheduled_at);
+      setScheduleForm({
+        date: dt.toISOString().split('T')[0],
+        time: dt.toTimeString().slice(0, 5),
+        interval: 5
+      });
+    } else {
+      // Default to tomorrow at 10:00 AM
+      const tomorrow = new Date();
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      setScheduleForm({
+        date: tomorrow.toISOString().split('T')[0],
+        time: "10:00",
+        interval: 5
+      });
+    }
+    setScheduleDialogOpen(true);
+  };
+
+  const openBulkScheduleDialog = () => {
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    setScheduleForm({
+      date: tomorrow.toISOString().split('T')[0],
+      time: "10:00",
+      interval: 5
+    });
+    setBulkScheduleDialogOpen(true);
+  };
+
   const openEditDialog = (message) => {
     setSelectedMessage(message);
     setEditedContent(message.content);
