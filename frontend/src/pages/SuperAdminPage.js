@@ -145,7 +145,7 @@ const AdminDashboard = () => {
 
   const fetchStats = async () => {
     try {
-      const res = await authFetch(`${API}/admin/stats`);
+      const res = await authFetch(`${API}/api/admin/stats`);
       if (res.ok) {
         const data = await res.json();
         setStats(data);
@@ -206,7 +206,7 @@ const AdminTenants = () => {
 
   const fetchTenants = async () => {
     try {
-      const res = await authFetch(`${API}/admin/tenants?search=${search}`);
+      const res = await authFetch(`${API}/api/admin/tenants?search=${search}`);
       if (res.ok) {
         const data = await res.json();
         setTenants(data.tenants);
@@ -297,7 +297,7 @@ const AdminUsers = () => {
 
   const fetchUsers = async () => {
     try {
-      const res = await authFetch(`${API}/admin/users?search=${search}`);
+      const res = await authFetch(`${API}/api/admin/users?search=${search}`);
       if (res.ok) {
         const data = await res.json();
         setUsers(data.users);
@@ -313,7 +313,7 @@ const AdminUsers = () => {
   const handleResetPassword = async () => {
     if (!selectedUser || !newPassword) return;
     try {
-      const res = await authFetch(`${API}/admin/users/${selectedUser.id}/reset-password`, {
+      const res = await authFetch(`${API}/api/admin/users/${selectedUser.id}/reset-password`, {
         method: "POST",
         body: JSON.stringify({ new_password: newPassword })
       });
@@ -332,7 +332,7 @@ const AdminUsers = () => {
 
   const toggleSuperAdmin = async (user) => {
     try {
-      const res = await authFetch(`${API}/admin/users/${user.id}`, {
+      const res = await authFetch(`${API}/api/admin/users/${user.id}`, {
         method: "PUT",
         body: JSON.stringify({ is_super_admin: !user.is_super_admin })
       });
@@ -347,7 +347,7 @@ const AdminUsers = () => {
 
   const toggleActive = async (user) => {
     try {
-      const res = await authFetch(`${API}/admin/users/${user.id}`, {
+      const res = await authFetch(`${API}/api/admin/users/${user.id}`, {
         method: "PUT",
         body: JSON.stringify({ is_active: !user.is_active })
       });
@@ -503,7 +503,7 @@ const AdminPlans = () => {
 
   const fetchPlans = async () => {
     try {
-      const res = await authFetch(`${API}/admin/plans`);
+      const res = await authFetch(`${API}/api/admin/plans`);
       if (res.ok) {
         const data = await res.json();
         setPlans(data);
@@ -548,7 +548,7 @@ const AdminPlans = () => {
     };
 
     try {
-      const url = selectedPlan ? `${API}/admin/plans/${selectedPlan.id}` : `${API}/admin/plans`;
+      const url = selectedPlan ? `${API}/api/admin/plans/${selectedPlan.id}` : `${API}/api/admin/plans`;
       const method = selectedPlan ? "PUT" : "POST";
       
       const res = await authFetch(url, {
@@ -571,7 +571,7 @@ const AdminPlans = () => {
   const handleDelete = async (planId) => {
     if (!confirm("Are you sure you want to delete this plan?")) return;
     try {
-      const res = await authFetch(`${API}/admin/plans/${planId}`, { method: "DELETE" });
+      const res = await authFetch(`${API}/api/admin/plans/${planId}`, { method: "DELETE" });
       if (res.ok) {
         toast.success("Plan deleted");
         fetchPlans();
@@ -760,7 +760,7 @@ const AdminSubscriptions = () => {
 
   const fetchSubscriptions = async () => {
     try {
-      const res = await authFetch(`${API}/admin/subscriptions`);
+      const res = await authFetch(`${API}/api/admin/subscriptions`);
       if (res.ok) {
         const data = await res.json();
         setSubscriptions(data.subscriptions);
@@ -840,7 +840,7 @@ const AdminPages = () => {
 
   const fetchPages = async () => {
     try {
-      const res = await authFetch(`${API}/admin/pages`);
+      const res = await authFetch(`${API}/api/admin/pages`);
       if (res.ok) {
         const data = await res.json();
         setPages(data);
@@ -871,7 +871,7 @@ const AdminPages = () => {
 
   const handleSave = async () => {
     try {
-      const url = selectedPage ? `${API}/admin/pages/${selectedPage.id}` : `${API}/admin/pages`;
+      const url = selectedPage ? `${API}/api/admin/pages/${selectedPage.id}` : `${API}/api/admin/pages`;
       const method = selectedPage ? "PUT" : "POST";
       
       const res = await authFetch(url, {
@@ -895,7 +895,7 @@ const AdminPages = () => {
   const handleDelete = async (pageId) => {
     if (!confirm("Are you sure you want to delete this page?")) return;
     try {
-      const res = await authFetch(`${API}/admin/pages/${pageId}`, { method: "DELETE" });
+      const res = await authFetch(`${API}/api/admin/pages/${pageId}`, { method: "DELETE" });
       if (res.ok) {
         toast.success("Page deleted");
         fetchPages();
