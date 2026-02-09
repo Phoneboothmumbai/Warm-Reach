@@ -3993,6 +3993,386 @@ async def get_audit_logs(
 # ROOT & HEALTH
 # ========================
 
+# ==================== SUPER ADMIN ENDPOINTS ====================
+
+async def get_super_admin(current_user: Dict = Depends(get_current_user)):
+    """Verify user is a super admin"""
+    user = await db.users.find_one({"id": current_user["sub"]}, {"_id": 0})
+    if not user or not user.get("is_super_admin", False):
+        raise HTTPException(status_code=403, detail="Super admin access required")
+    return current_user
+
+# Get all plans (public endpoint for landing page)
+@api_router.get("/plans")
+async def get_plans():
+    """Get all active plans for the pricing page"""
+    plans = await db.plans.find({"is_active": True}, {"_id": 0}).sort("sort_order", 1).to_list(100)
+    return plans
+
+# Super Admin: Get all plans including inactive
+@api_router.get("/admin/plans")
+async def admin_get_plans(current_user: Dict = Depends(get_super_admin)):
+    plans = await db.plans.find({}, {"_id": 0}).sort("sort_order", 1).to_list(100)
+    return plans
+
+# Super Admin: Create plan
+@api_router.post("/admin/plans")
+async def admin_create_plan(plan: PlanCreate, current_user: Dict = Depends(get_super_admin)):
+    plan_dict = plan.model_dump()
+    plan_dict["id"] = str(uuid.uuid4())
+    plan_dict["created_at"] = datetime.now(timezone.utc).isoformat()
+    plan_dict["updated_at"] = datetime.now(timezone.utc).isoformat()
+    await db.plans.insert_one(plan_dict)
+    return {**plan_dict, "_id": None}
+
+# Super Admin: Update plan
+@api_router.put("/admin/plans/{plan_id}")
+async def admin_update_plan(plan_id: str, plan: PlanCreate, current_user: Dict = Depends(get_super_admin)):
+    existing = await db.plans.find_one({"id": plan_id})
+    if not existing:
+        raise HTTPException(status_code=404, detail="Plan not found")
+    
+    update_data = plan.model_dump()
+    update_data["updated_at"] = datetime.now(timezone.utc).isoformat()
+    await db.plans.update_one({"id": plan_id}, {"$set": update_data})
+    return {"message": "Plan updated"}
+
+# Super Admin: Delete plan
+@api_router.delete("/admin/plans/{plan_id}")
+async def admin_delete_plan(plan_id: str, current_user: Dict = Depends(get_super_admin)):
+    result = await db.plans.delete_one({"id": plan_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Plan not found")
+    return {"message": "Plan deleted"}
+
+# Super Admin: Get dashboard stats
+@api_router.get("/admin/stats")
+async def admin_get_stats(current_user: Dict = Depends(get_super_admin)):
+    total_tenants = await db.tenants.count_documents({})
+    total_users = await db.users.count_documents({})
+    total_messages = await db.messages.count_documents({})
+    sent_messages = await db.messages.count_documents({"status": "sent"})
+    
+    # Active tenants (has logged in within 30 days)
+    thirty_days_ago = (datetime.now(timezone.utc) - timedelta(days=30)).isoformat()
+    active_tenants = await db.tenants.count_documents({"last_activity": {"$gte": thirty_days_ago}})
+    
+    # New tenants this week
+    week_ago = (datetime.now(timezone.utc) - timedelta(days=7)).isoformat()
+    new_this_week = await db.tenants.count_documents({"created_at": {"$gte": week_ago}})
+    
+    # Subscription stats
+    active_subs = await db.subscriptions.count_documents({"status": "active"})
+    trial_subs = await db.subscriptions.count_documents({"status": "trial"})
+    
+    return {
+        "total_tenants": total_tenants,
+        "active_tenants": active_tenants,
+        "trial_tenants": trial_subs,
+        "paid_tenants": active_subs,
+        "inactive_tenants": total_tenants - active_tenants,
+        "new_this_week": new_this_week,
+        "total_users": total_users,
+        "total_messages_sent": sent_messages,
+        "total_contacts": await db.contacts.count_documents({}),
+        "total_blueprints": await db.blueprints.count_documents({})
+    }
+
+# Super Admin: Get all tenants
+@api_router.get("/admin/tenants")
+async def admin_get_tenants(
+    current_user: Dict = Depends(get_super_admin),
+    skip: int = 0,
+    limit: int = 50,
+    search: Optional[str] = None,
+    status: Optional[str] = None
+):
+    query = {}
+    if search:
+        query["$or"] = [
+            {"name": {"$regex": search, "$options": "i"}},
+            {"company_name": {"$regex": search, "$options": "i"}}
+        ]
+    if status:
+        query["status"] = status
+    
+    tenants = await db.tenants.find(query, {"_id": 0}).skip(skip).limit(limit).sort("created_at", -1).to_list(limit)
+    total = await db.tenants.count_documents(query)
+    
+    # Enrich with subscription and user info
+    for tenant in tenants:
+        sub = await db.subscriptions.find_one({"tenant_id": tenant["id"]}, {"_id": 0})
+        tenant["subscription"] = sub
+        
+        users_count = await db.users.count_documents({"tenant_id": tenant["id"]})
+        tenant["users_count"] = users_count
+        
+        messages_sent = await db.messages.count_documents({"tenant_id": tenant["id"], "status": "sent"})
+        tenant["messages_sent"] = messages_sent
+        
+        contacts_count = await db.contacts.count_documents({"tenant_id": tenant["id"]})
+        tenant["contacts_count"] = contacts_count
+    
+    return {"tenants": tenants, "total": total}
+
+# Super Admin: Update tenant status
+@api_router.put("/admin/tenants/{tenant_id}")
+async def admin_update_tenant(
+    tenant_id: str,
+    status: Optional[str] = None,
+    plan_id: Optional[str] = None,
+    current_user: Dict = Depends(get_super_admin)
+):
+    tenant = await db.tenants.find_one({"id": tenant_id})
+    if not tenant:
+        raise HTTPException(status_code=404, detail="Tenant not found")
+    
+    update_data = {"updated_at": datetime.now(timezone.utc).isoformat()}
+    if status:
+        update_data["status"] = status
+    
+    await db.tenants.update_one({"id": tenant_id}, {"$set": update_data})
+    
+    # Update subscription if plan_id provided
+    if plan_id:
+        await db.subscriptions.update_one(
+            {"tenant_id": tenant_id},
+            {
+                "$set": {
+                    "plan_id": plan_id,
+                    "updated_at": datetime.now(timezone.utc).isoformat()
+                }
+            },
+            upsert=True
+        )
+    
+    return {"message": "Tenant updated"}
+
+# Super Admin: Get all users
+@api_router.get("/admin/users")
+async def admin_get_users(
+    current_user: Dict = Depends(get_super_admin),
+    skip: int = 0,
+    limit: int = 50,
+    search: Optional[str] = None
+):
+    query = {}
+    if search:
+        query["$or"] = [
+            {"email": {"$regex": search, "$options": "i"}},
+            {"first_name": {"$regex": search, "$options": "i"}},
+            {"last_name": {"$regex": search, "$options": "i"}}
+        ]
+    
+    users = await db.users.find(query, {"_id": 0, "hashed_password": 0}).skip(skip).limit(limit).sort("created_at", -1).to_list(limit)
+    total = await db.users.count_documents(query)
+    
+    # Enrich with tenant info
+    for user in users:
+        tenant = await db.tenants.find_one({"id": user.get("tenant_id")}, {"_id": 0, "name": 1, "company_name": 1})
+        user["tenant"] = tenant
+    
+    return {"users": users, "total": total}
+
+# Super Admin: Update user
+@api_router.put("/admin/users/{user_id}")
+async def admin_update_user(
+    user_id: str,
+    update: SuperAdminUserUpdate,
+    current_user: Dict = Depends(get_super_admin)
+):
+    user = await db.users.find_one({"id": user_id})
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    update_data = {"updated_at": datetime.now(timezone.utc).isoformat()}
+    if update.is_active is not None:
+        update_data["is_active"] = update.is_active
+    if update.is_super_admin is not None:
+        update_data["is_super_admin"] = update.is_super_admin
+    
+    await db.users.update_one({"id": user_id}, {"$set": update_data})
+    return {"message": "User updated"}
+
+# Super Admin: Reset user password
+@api_router.post("/admin/users/{user_id}/reset-password")
+async def admin_reset_password(
+    user_id: str,
+    reset: PasswordReset,
+    current_user: Dict = Depends(get_super_admin)
+):
+    user = await db.users.find_one({"id": user_id})
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    hashed_password = bcrypt.hashpw(reset.new_password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+    await db.users.update_one(
+        {"id": user_id},
+        {"$set": {"hashed_password": hashed_password, "updated_at": datetime.now(timezone.utc).isoformat()}}
+    )
+    return {"message": "Password reset successfully"}
+
+# Super Admin: Delete user
+@api_router.delete("/admin/users/{user_id}")
+async def admin_delete_user(
+    user_id: str,
+    current_user: Dict = Depends(get_super_admin)
+):
+    user = await db.users.find_one({"id": user_id})
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Don't allow deleting yourself
+    if user_id == current_user["sub"]:
+        raise HTTPException(status_code=400, detail="Cannot delete yourself")
+    
+    await db.users.delete_one({"id": user_id})
+    return {"message": "User deleted"}
+
+# Super Admin: Get subscriptions
+@api_router.get("/admin/subscriptions")
+async def admin_get_subscriptions(
+    current_user: Dict = Depends(get_super_admin),
+    skip: int = 0,
+    limit: int = 50,
+    status: Optional[str] = None
+):
+    query = {}
+    if status:
+        query["status"] = status
+    
+    subs = await db.subscriptions.find(query, {"_id": 0}).skip(skip).limit(limit).sort("started_at", -1).to_list(limit)
+    total = await db.subscriptions.count_documents(query)
+    
+    # Enrich with tenant and plan info
+    for sub in subs:
+        tenant = await db.tenants.find_one({"id": sub["tenant_id"]}, {"_id": 0, "name": 1, "company_name": 1})
+        sub["tenant"] = tenant
+        
+        plan = await db.plans.find_one({"id": sub["plan_id"]}, {"_id": 0, "name": 1, "price": 1})
+        sub["plan"] = plan
+    
+    return {"subscriptions": subs, "total": total}
+
+# Super Admin: Update subscription
+@api_router.put("/admin/subscriptions/{subscription_id}")
+async def admin_update_subscription(
+    subscription_id: str,
+    status: Optional[str] = None,
+    plan_id: Optional[str] = None,
+    expires_at: Optional[datetime] = None,
+    current_user: Dict = Depends(get_super_admin)
+):
+    sub = await db.subscriptions.find_one({"id": subscription_id})
+    if not sub:
+        raise HTTPException(status_code=404, detail="Subscription not found")
+    
+    update_data = {"updated_at": datetime.now(timezone.utc).isoformat()}
+    if status:
+        update_data["status"] = status
+    if plan_id:
+        update_data["plan_id"] = plan_id
+    if expires_at:
+        update_data["expires_at"] = expires_at.isoformat()
+    
+    await db.subscriptions.update_one({"id": subscription_id}, {"$set": update_data})
+    return {"message": "Subscription updated"}
+
+# Super Admin: Get audit logs
+@api_router.get("/admin/audit-logs")
+async def admin_get_audit_logs(
+    current_user: Dict = Depends(get_super_admin),
+    skip: int = 0,
+    limit: int = 100,
+    tenant_id: Optional[str] = None
+):
+    query = {}
+    if tenant_id:
+        query["tenant_id"] = tenant_id
+    
+    logs = await db.audit_logs.find(query, {"_id": 0}).skip(skip).limit(limit).sort("created_at", -1).to_list(limit)
+    total = await db.audit_logs.count_documents(query)
+    
+    return {"logs": logs, "total": total}
+
+# Super Admin: Make user super admin
+@api_router.post("/admin/make-super-admin/{user_email}")
+async def make_super_admin(
+    user_email: str,
+    current_user: Dict = Depends(get_super_admin)
+):
+    user = await db.users.find_one({"email": user_email})
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    await db.users.update_one(
+        {"email": user_email},
+        {"$set": {"is_super_admin": True}}
+    )
+    return {"message": f"User {user_email} is now a super admin"}
+
+# Initialize default plans if none exist
+async def init_default_plans():
+    count = await db.plans.count_documents({})
+    if count == 0:
+        default_plans = [
+            {
+                "id": str(uuid.uuid4()),
+                "name": "Starter",
+                "description": "Perfect for trying out",
+                "price": 0,
+                "currency": "INR",
+                "billing_cycle": "monthly",
+                "messages_per_day": 10,
+                "contacts_limit": 50,
+                "channels": ["whatsapp"],
+                "features": ["10 messages/day", "50 contacts", "WhatsApp only", "Basic templates"],
+                "is_popular": False,
+                "is_active": True,
+                "sort_order": 1,
+                "created_at": datetime.now(timezone.utc).isoformat(),
+                "updated_at": datetime.now(timezone.utc).isoformat()
+            },
+            {
+                "id": str(uuid.uuid4()),
+                "name": "Professional",
+                "description": "For growing businesses",
+                "price": 2999,
+                "currency": "INR",
+                "billing_cycle": "monthly",
+                "messages_per_day": 50,
+                "contacts_limit": 500,
+                "channels": ["whatsapp", "email"],
+                "features": ["50 messages/day", "500 contacts", "WhatsApp + Email", "AI personalization", "Custom blueprints", "Priority support"],
+                "is_popular": True,
+                "is_active": True,
+                "sort_order": 2,
+                "created_at": datetime.now(timezone.utc).isoformat(),
+                "updated_at": datetime.now(timezone.utc).isoformat()
+            },
+            {
+                "id": str(uuid.uuid4()),
+                "name": "Enterprise",
+                "description": "For large organizations",
+                "price": 9999,
+                "currency": "INR",
+                "billing_cycle": "monthly",
+                "messages_per_day": 999999,
+                "contacts_limit": 999999,
+                "channels": ["whatsapp", "email", "linkedin"],
+                "features": ["Unlimited messages", "Unlimited contacts", "All channels", "API access", "Dedicated support", "Custom integrations"],
+                "is_popular": False,
+                "is_active": True,
+                "sort_order": 3,
+                "created_at": datetime.now(timezone.utc).isoformat(),
+                "updated_at": datetime.now(timezone.utc).isoformat()
+            }
+        ]
+        await db.plans.insert_many(default_plans)
+        logger.info("Default plans created")
+
+# ==================== END SUPER ADMIN ENDPOINTS ====================
+
 @api_router.get("/")
 async def root():
     return {"message": "Warm Outreach Engine API", "version": "1.0.0"}
