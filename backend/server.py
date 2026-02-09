@@ -1213,7 +1213,7 @@ async def register(user_data: UserCreate):
         user=UserResponse(
             id=user.id, email=user.email, first_name=user.first_name,
             last_name=user.last_name, role=user.role, tenant_id=user.tenant_id,
-            is_active=user.is_active
+            is_active=user.is_active, is_super_admin=False
         )
     )
 
