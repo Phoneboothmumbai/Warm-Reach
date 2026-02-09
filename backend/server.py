@@ -3997,8 +3997,8 @@ async def get_audit_logs(
 
 async def get_super_admin(current_user: Dict = Depends(get_current_user)):
     """Verify user is a super admin"""
-    user = await db.users.find_one({"id": current_user["sub"]}, {"_id": 0})
-    if not user or not user.get("is_super_admin", False):
+    # current_user already contains the full user document from get_current_user
+    if not current_user.get("is_super_admin", False):
         raise HTTPException(status_code=403, detail="Super admin access required")
     return current_user
 
