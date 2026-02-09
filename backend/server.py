@@ -805,6 +805,65 @@ class AuditLog(BaseModel):
     details: Optional[Dict[str, Any]] = None
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
+# ==================== SUPER ADMIN MODELS ====================
+
+class PlanFeature(BaseModel):
+    name: str
+    included: bool = True
+    limit: Optional[int] = None
+
+class PlanCreate(BaseModel):
+    name: str
+    description: Optional[str] = None
+    price: float
+    currency: str = "INR"
+    billing_cycle: str = "monthly"  # monthly, yearly, lifetime
+    messages_per_day: int = 10
+    contacts_limit: int = 50
+    channels: List[str] = ["whatsapp"]
+    features: List[str] = []
+    is_popular: bool = False
+    is_active: bool = True
+    sort_order: int = 0
+
+class Plan(PlanCreate):
+    model_config = ConfigDict(extra="ignore")
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+class Subscription(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    tenant_id: str
+    plan_id: str
+    status: str = "trial"  # trial, active, cancelled, expired
+    started_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    expires_at: Optional[datetime] = None
+    cancelled_at: Optional[datetime] = None
+    payment_method: Optional[str] = None
+    last_payment_at: Optional[datetime] = None
+
+class TenantStats(BaseModel):
+    total_tenants: int
+    active_tenants: int
+    trial_tenants: int
+    paid_tenants: int
+    inactive_tenants: int
+    new_this_week: int
+    total_users: int
+    total_messages_sent: int
+    total_revenue: float
+
+class SuperAdminUserUpdate(BaseModel):
+    is_active: Optional[bool] = None
+    is_super_admin: Optional[bool] = None
+
+class PasswordReset(BaseModel):
+    new_password: str
+
+# ==================== END SUPER ADMIN MODELS ====================
+
 class DashboardMetrics(BaseModel):
     total_contacts: int
     total_messages_sent: int
