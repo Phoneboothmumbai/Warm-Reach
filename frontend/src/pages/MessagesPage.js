@@ -182,6 +182,7 @@ export const MessagesPage = () => {
   };
 
   const handleDeleteMessage = async (messageId) => {
+    if (!confirm("Are you sure you want to delete this message?")) return;
     try {
       const response = await authFetch(`${API}/messages/${messageId}`, {
         method: "DELETE"
@@ -196,6 +197,24 @@ export const MessagesPage = () => {
       }
     } catch (error) {
       toast.error("Failed to delete message");
+    }
+  };
+
+  const handleBulkDeleteMessages = async (messageIds) => {
+    if (!confirm(`Are you sure you want to delete ${messageIds.length} message(s)?`)) return;
+    try {
+      let deleted = 0;
+      for (const id of messageIds) {
+        const response = await authFetch(`${API}/messages/${id}`, {
+          method: "DELETE"
+        });
+        if (response.ok) deleted++;
+      }
+      toast.success(`Deleted ${deleted} message(s)`);
+      setSelectedMessages([]);
+      fetchData();
+    } catch (error) {
+      toast.error("Failed to delete messages");
     }
   };
 
