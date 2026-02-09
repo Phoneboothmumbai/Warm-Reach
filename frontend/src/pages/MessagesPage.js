@@ -445,7 +445,7 @@ export const MessagesPage = () => {
                   </p>
                 </div>
               </div>
-              <div className="flex gap-2">
+              <div className="flex gap-2 flex-wrap">
                 <Button
                   variant="outline"
                   size="sm"
@@ -459,16 +459,28 @@ export const MessagesPage = () => {
                   )}
                 </Button>
                 {selectedMessages.length > 0 && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleBulkDeleteMessages(selectedMessages)}
-                    className="text-destructive hover:bg-destructive/10"
-                    data-testid="delete-selected-btn"
-                  >
-                    <Trash2 className="w-4 h-4 mr-2" />
-                    Delete ({selectedMessages.length})
-                  </Button>
+                  <>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleBulkDeleteMessages(selectedMessages)}
+                      className="text-destructive hover:bg-destructive/10"
+                      data-testid="delete-selected-btn"
+                    >
+                      <Trash2 className="w-4 h-4 mr-2" />
+                      Delete ({selectedMessages.length})
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={openBulkScheduleDialog}
+                      className="text-blue-600 hover:bg-blue-500/10"
+                      data-testid="schedule-selected-btn"
+                    >
+                      <Calendar className="w-4 h-4 mr-2" />
+                      Schedule ({selectedMessages.length})
+                    </Button>
+                  </>
                 )}
                 <Button
                   onClick={() => handleApproveMessages(
