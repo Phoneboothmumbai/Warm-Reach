@@ -819,6 +819,214 @@ const AdminSubscriptions = () => {
   );
 };
 
+// Pages Management
+const AdminPages = () => {
+  const { authFetch } = useAuth();
+  const [pages, setPages] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [editDialog, setEditDialog] = useState(false);
+  const [selectedPage, setSelectedPage] = useState(null);
+  const [formData, setFormData] = useState({
+    slug: "",
+    title: "",
+    content: "",
+    is_published: true,
+    meta_description: ""
+  });
+
+  useEffect(() => {
+    fetchPages();
+  }, []);
+
+  const fetchPages = async () => {
+    try {
+      const res = await authFetch(`${API}/admin/pages`);
+      if (res.ok) {
+        const data = await res.json();
+        setPages(data);
+      }
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const openEditDialog = (page = null) => {
+    if (page) {
+      setSelectedPage(page);
+      setFormData(page);
+    } else {
+      setSelectedPage(null);
+      setFormData({
+        slug: "",
+        title: "",
+        content: "",
+        is_published: true,
+        meta_description: ""
+      });
+    }
+    setEditDialog(true);
+  };
+
+  const handleSave = async () => {
+    try {
+      const url = selectedPage ? `${API}/admin/pages/${selectedPage.id}` : `${API}/admin/pages`;
+      const method = selectedPage ? "PUT" : "POST";
+      
+      const res = await authFetch(url, {
+        method,
+        body: JSON.stringify(formData)
+      });
+
+      if (res.ok) {
+        toast.success(selectedPage ? "Page updated" : "Page created");
+        setEditDialog(false);
+        fetchPages();
+      } else {
+        const error = await res.json();
+        toast.error(error.detail || "Failed to save page");
+      }
+    } catch (error) {
+      toast.error("Failed to save page");
+    }
+  };
+
+  const handleDelete = async (pageId) => {
+    if (!confirm("Are you sure you want to delete this page?")) return;
+    try {
+      const res = await authFetch(`${API}/admin/pages/${pageId}`, { method: "DELETE" });
+      if (res.ok) {
+        toast.success("Page deleted");
+        fetchPages();
+      } else {
+        toast.error("Failed to delete page");
+      }
+    } catch (error) {
+      toast.error("Failed to delete page");
+    }
+  };
+
+  return (
+    <div>
+      <div className="flex justify-between items-center mb-8">
+        <div>
+          <h1 className="text-3xl font-bold">Pages</h1>
+          <p className="text-muted-foreground">Manage static pages (Privacy Policy, Terms, Contact, etc.)</p>
+        </div>
+        <Button onClick={() => openEditDialog()}>
+          <Plus className="w-4 h-4 mr-2" />
+          Add Page
+        </Button>
+      </div>
+
+      <Card>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Title</TableHead>
+              <TableHead>Slug</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead>Updated</TableHead>
+              <TableHead>Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {pages.map((page) => (
+              <TableRow key={page.id}>
+                <TableCell className="font-medium">{page.title}</TableCell>
+                <TableCell>
+                  <code className="text-sm bg-muted px-2 py-1 rounded">/page/{page.slug}</code>
+                </TableCell>
+                <TableCell>
+                  <Badge variant={page.is_published ? "default" : "secondary"}>
+                    {page.is_published ? "Published" : "Draft"}
+                  </Badge>
+                </TableCell>
+                <TableCell>{new Date(page.updated_at).toLocaleDateString()}</TableCell>
+                <TableCell>
+                  <div className="flex gap-2">
+                    <Button variant="ghost" size="sm" onClick={() => window.open(`/page/${page.slug}`, '_blank')}>
+                      <Eye className="w-4 h-4" />
+                    </Button>
+                    <Button variant="ghost" size="sm" onClick={() => openEditDialog(page)}>
+                      <Edit className="w-4 h-4" />
+                    </Button>
+                    <Button variant="ghost" size="sm" className="text-destructive" onClick={() => handleDelete(page.id)}>
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </Card>
+
+      {/* Edit Page Dialog */}
+      <Dialog open={editDialog} onOpenChange={setEditDialog}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{selectedPage ? "Edit Page" : "Create Page"}</DialogTitle>
+            <DialogDescription>
+              Use Markdown for formatting. Preview will be available after saving.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Title</Label>
+                <Input
+                  value={formData.title}
+                  onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                  placeholder="Privacy Policy"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Slug (URL path)</Label>
+                <Input
+                  value={formData.slug}
+                  onChange={(e) => setFormData({ ...formData, slug: e.target.value.toLowerCase().replace(/\s+/g, '-') })}
+                  placeholder="privacy-policy"
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Meta Description (SEO)</Label>
+              <Input
+                value={formData.meta_description || ""}
+                onChange={(e) => setFormData({ ...formData, meta_description: e.target.value })}
+                placeholder="Brief description for search engines"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Content (Markdown supported)</Label>
+              <Textarea
+                rows={15}
+                value={formData.content}
+                onChange={(e) => setFormData({ ...formData, content: e.target.value })}
+                placeholder="# Page Title&#10;&#10;Your content here...&#10;&#10;## Subheading&#10;&#10;More content..."
+                className="font-mono text-sm"
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              <Switch
+                checked={formData.is_published}
+                onCheckedChange={(c) => setFormData({ ...formData, is_published: c })}
+              />
+              <Label>Published</Label>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditDialog(false)}>Cancel</Button>
+            <Button onClick={handleSave}>Save Page</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+};
+
 // Main Admin Component with Routes
 const SuperAdminPage = () => {
   return (
@@ -829,6 +1037,7 @@ const SuperAdminPage = () => {
         <Route path="/users" element={<AdminUsers />} />
         <Route path="/plans" element={<AdminPlans />} />
         <Route path="/subscriptions" element={<AdminSubscriptions />} />
+        <Route path="/pages" element={<AdminPages />} />
       </Routes>
     </AdminLayout>
   );
