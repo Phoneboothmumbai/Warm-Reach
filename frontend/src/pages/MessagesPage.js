@@ -486,26 +486,24 @@ export const MessagesPage = () => {
 
                       <div className="flex gap-2 shrink-0">
                         {canEdit && (
-                          <>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => openEditDialog(message)}
-                              data-testid={`edit-message-${message.id}`}
-                            >
-                              <Edit className="w-4 h-4" />
-                            </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleDeleteMessage(message.id)}
-                              className="text-destructive hover:bg-destructive/10"
-                              data-testid={`delete-message-${message.id}`}
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </Button>
-                          </>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => openEditDialog(message)}
+                            data-testid={`edit-message-${message.id}`}
+                          >
+                            <Edit className="w-4 h-4" />
+                          </Button>
                         )}
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleDeleteMessage(message.id)}
+                          className="text-destructive hover:bg-destructive/10"
+                          data-testid={`delete-message-${message.id}`}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
                         {isPending && !isSelected && (
                           <Button
                             size="sm"
