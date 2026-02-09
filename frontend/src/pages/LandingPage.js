@@ -102,10 +102,8 @@ const LandingPage = () => {
     "Message approval workflow",
     "Smart scheduling with random gaps",
     "Business hours only (9 AM - 6 PM)",
-    "Max 2 contacts/month limit",
     "Real-time delivery tracking",
-    "Conversation inbox",
-    "Multi-tenant SaaS ready"
+    "Conversation inbox"
   ];
 
   const useCases = [
