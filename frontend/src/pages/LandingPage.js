@@ -381,16 +381,6 @@ const LandingPage = () => {
           </div>
         </div>
       </section>
-                  </li>
-                </ul>
-                <Button variant="outline" className="w-full">
-                  Contact Sales
-                </Button>
-              </CardContent>
-            </Card>
-          </div>
-        </div>
-      </section>
 
       {/* CTA Section */}
       <section className="py-20 px-4 sm:px-6 lg:px-8">
