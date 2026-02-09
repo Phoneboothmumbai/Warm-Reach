@@ -899,6 +899,148 @@ export const MessagesPage = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Schedule Single Message Dialog */}
+      <Dialog open={scheduleDialogOpen} onOpenChange={(open) => {
+        setScheduleDialogOpen(open);
+        if (!open) setSelectedMessage(null);
+      }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Calendar className="w-5 h-5 text-blue-600" />
+              Schedule Message
+            </DialogTitle>
+            <DialogDescription>
+              Set when this message should be automatically sent
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            {selectedMessage && (
+              <div className="p-3 bg-muted/30 rounded-lg">
+                <p className="text-sm font-medium">To: {getContactName(selectedMessage.contact_id)}</p>
+                <p className="text-xs text-muted-foreground">{selectedMessage.channel}</p>
+              </div>
+            )}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Date</Label>
+                <Input
+                  type="date"
+                  value={scheduleForm.date}
+                  onChange={(e) => setScheduleForm({...scheduleForm, date: e.target.value})}
+                  min={new Date().toISOString().split('T')[0]}
+                  data-testid="schedule-date"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Time</Label>
+                <Input
+                  type="time"
+                  value={scheduleForm.time}
+                  onChange={(e) => setScheduleForm({...scheduleForm, time: e.target.value})}
+                  data-testid="schedule-time"
+                />
+              </div>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              The message will be sent automatically at the scheduled time via {selectedMessage?.channel}.
+            </p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setScheduleDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleScheduleMessage} data-testid="confirm-schedule-btn">
+              <Calendar className="w-4 h-4 mr-2" />
+              Schedule
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Bulk Schedule Dialog */}
+      <Dialog open={bulkScheduleDialogOpen} onOpenChange={setBulkScheduleDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Calendar className="w-5 h-5 text-blue-600" />
+              Schedule {selectedMessages.length} Messages
+            </DialogTitle>
+            <DialogDescription>
+              Schedule selected messages with interval spacing to avoid spam
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="p-3 bg-blue-500/10 rounded-lg">
+              <p className="text-sm">
+                <strong>{selectedMessages.length}</strong> messages will be scheduled starting from the time below,
+                with <strong>{scheduleForm.interval} minutes</strong> between each message.
+              </p>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Start Date</Label>
+                <Input
+                  type="date"
+                  value={scheduleForm.date}
+                  onChange={(e) => setScheduleForm({...scheduleForm, date: e.target.value})}
+                  min={new Date().toISOString().split('T')[0]}
+                  data-testid="bulk-schedule-date"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Start Time</Label>
+                <Input
+                  type="time"
+                  value={scheduleForm.time}
+                  onChange={(e) => setScheduleForm({...scheduleForm, time: e.target.value})}
+                  data-testid="bulk-schedule-time"
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Interval (minutes between messages)</Label>
+              <Select 
+                value={String(scheduleForm.interval)} 
+                onValueChange={(v) => setScheduleForm({...scheduleForm, interval: parseInt(v)})}
+              >
+                <SelectTrigger data-testid="interval-select">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="1">1 minute</SelectItem>
+                  <SelectItem value="2">2 minutes</SelectItem>
+                  <SelectItem value="5">5 minutes</SelectItem>
+                  <SelectItem value="10">10 minutes</SelectItem>
+                  <SelectItem value="15">15 minutes</SelectItem>
+                  <SelectItem value="30">30 minutes</SelectItem>
+                  <SelectItem value="60">1 hour</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Last message will be sent at approximately{" "}
+              {scheduleForm.date && scheduleForm.time ? 
+                new Date(
+                  new Date(`${scheduleForm.date}T${scheduleForm.time}`).getTime() + 
+                  (selectedMessages.length - 1) * scheduleForm.interval * 60000
+                ).toLocaleString() 
+                : "..."
+              }
+            </p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setBulkScheduleDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleBulkSchedule} data-testid="confirm-bulk-schedule-btn">
+              <Calendar className="w-4 h-4 mr-2" />
+              Schedule All
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
