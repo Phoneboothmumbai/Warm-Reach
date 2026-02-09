@@ -5,6 +5,7 @@ import { Toaster } from "@/components/ui/sonner";
 
 // Pages
 import { LoginPage } from "@/pages/LoginPage";
+import LandingPage from "@/pages/LandingPage";
 import { DashboardPage } from "@/pages/DashboardPage";
 import { ContactsPage } from "@/pages/ContactsPage";
 import { BlueprintsPage } from "@/pages/BlueprintsPage";
