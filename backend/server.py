@@ -4223,7 +4223,7 @@ async def admin_delete_user(
         raise HTTPException(status_code=404, detail="User not found")
     
     # Don't allow deleting yourself
-    if user_id == current_user["sub"]:
+    if user_id == current_user["id"]:
         raise HTTPException(status_code=400, detail="Cannot delete yourself")
     
     await db.users.delete_one({"id": user_id})
