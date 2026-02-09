@@ -204,6 +204,14 @@ function App() {
             <Route path="/login" element={<LoginPage />} />
             <Route path="/register" element={<LoginPage />} />
             <Route
+              path="/admin/*"
+              element={
+                <SuperAdminRoute>
+                  <SuperAdminPage />
+                </SuperAdminRoute>
+              }
+            />
+            <Route
               path="/app/*"
               element={
                 <ProtectedRoute>
