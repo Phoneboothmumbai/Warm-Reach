@@ -1238,7 +1238,7 @@ async def login(credentials: UserLogin):
         user=UserResponse(
             id=user["id"], email=user["email"], first_name=user["first_name"],
             last_name=user["last_name"], role=user["role"], tenant_id=user["tenant_id"],
-            is_active=user.get("is_active", True)
+            is_active=user.get("is_active", True), is_super_admin=user.get("is_super_admin", False)
         )
     )
 
@@ -1248,7 +1248,7 @@ async def get_me(current_user: Dict = Depends(get_current_user)):
         id=current_user["id"], email=current_user["email"],
         first_name=current_user["first_name"], last_name=current_user["last_name"],
         role=current_user["role"], tenant_id=current_user["tenant_id"],
-        is_active=current_user.get("is_active", True)
+        is_active=current_user.get("is_active", True), is_super_admin=current_user.get("is_super_admin", False)
     )
 
 # ========================
