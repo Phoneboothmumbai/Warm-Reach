@@ -117,11 +117,13 @@ async def process_scheduled_messages():
         
         # Update message status
         if result.get("success"):
+            now = datetime.now(timezone.utc).isoformat()
+            
             await db.messages.update_one(
                 {"id": message_id},
                 {"$set": {
                     "status": "sent",
-                    "sent_at": datetime.now(timezone.utc).isoformat(),
+                    "sent_at": now,
                     "error_message": None
                 }}
             )
@@ -130,10 +132,46 @@ async def process_scheduled_messages():
             await db.contacts.update_one(
                 {"id": contact_id},
                 {"$set": {
-                    f"last_contacted.{channel}": datetime.now(timezone.utc).isoformat(),
+                    f"last_contacted.{channel}": now,
                     "status": "contacted"
                 }}
             )
+            
+            # If WhatsApp, also save to wa_web_messages so it shows in conversations
+            if channel == "whatsapp":
+                phone = contact.get("phone", "")
+                if not phone.startswith('+'):
+                    phone = '+' + phone
+                
+                wa_message = {
+                    "id": str(uuid.uuid4()),
+                    "tenant_id": tenant_id,
+                    "contact_number": phone,
+                    "message_id": result.get("data", {}).get("messageId", message_id),
+                    "content": content,
+                    "direction": "outgoing",
+                    "status": "sent",
+                    "timestamp": now,
+                    "integration_type": "web"
+                }
+                await db.wa_web_messages.insert_one(wa_message)
+                
+                # Update wa_web_contacts
+                await db.wa_web_contacts.update_one(
+                    {"tenant_id": tenant_id, "contact_number": phone},
+                    {
+                        "$set": {
+                            "last_message_at": now,
+                            "last_message_preview": content[:50] + "..." if len(content) > 50 else content
+                        },
+                        "$setOnInsert": {
+                            "tenant_id": tenant_id,
+                            "contact_number": phone,
+                            "name": f"{contact.get('first_name', '')} {contact.get('last_name', '')}".strip()
+                        }
+                    },
+                    upsert=True
+                )
             
             logger.info(f"Message {message_id} sent successfully")
         else:
