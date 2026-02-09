@@ -2137,8 +2137,8 @@ async def schedule_message(
     if not message:
         raise HTTPException(status_code=404, detail="Message not found")
     
-    if message["status"] not in [MessageStatus.APPROVED, MessageStatus.DRAFT]:
-        raise HTTPException(status_code=400, detail="Message must be approved before scheduling")
+    if message["status"] not in [MessageStatus.APPROVED, MessageStatus.DRAFT, MessageStatus.PENDING_APPROVAL, MessageStatus.SCHEDULED]:
+        raise HTTPException(status_code=400, detail="Cannot schedule message with current status")
     
     await db.messages.update_one(
         {"id": data.message_id},
@@ -2152,7 +2152,68 @@ async def schedule_message(
     
     await log_audit(current_user["tenant_id"], current_user["id"], "schedule", "message", data.message_id)
     
-    return {"message": "Message scheduled"}
+    return {"message": "Message scheduled", "scheduled_at": data.scheduled_at.isoformat()}
+
+@api_router.put("/messages/{message_id}/reschedule")
+async def reschedule_message(
+    message_id: str,
+    scheduled_at: datetime = Query(...),
+    current_user: Dict = Depends(get_current_user)
+):
+    """Reschedule a message to a new date/time"""
+    message = await db.messages.find_one(
+        {"id": message_id, "tenant_id": current_user["tenant_id"]},
+        {"_id": 0}
+    )
+    if not message:
+        raise HTTPException(status_code=404, detail="Message not found")
+    
+    if message["status"] not in [MessageStatus.SCHEDULED, MessageStatus.APPROVED, MessageStatus.PENDING_APPROVAL, MessageStatus.DRAFT]:
+        raise HTTPException(status_code=400, detail="Cannot reschedule message with current status")
+    
+    await db.messages.update_one(
+        {"id": message_id},
+        {
+            "$set": {
+                "status": MessageStatus.SCHEDULED,
+                "scheduled_at": scheduled_at.isoformat()
+            }
+        }
+    )
+    
+    await log_audit(current_user["tenant_id"], current_user["id"], "reschedule", "message", message_id)
+    
+    return {"message": "Message rescheduled", "scheduled_at": scheduled_at.isoformat()}
+
+@api_router.delete("/messages/{message_id}/unschedule")
+async def unschedule_message(
+    message_id: str,
+    current_user: Dict = Depends(get_current_user)
+):
+    """Remove schedule from a message (back to approved)"""
+    message = await db.messages.find_one(
+        {"id": message_id, "tenant_id": current_user["tenant_id"]},
+        {"_id": 0}
+    )
+    if not message:
+        raise HTTPException(status_code=404, detail="Message not found")
+    
+    if message["status"] != MessageStatus.SCHEDULED:
+        raise HTTPException(status_code=400, detail="Message is not scheduled")
+    
+    await db.messages.update_one(
+        {"id": message_id},
+        {
+            "$set": {
+                "status": MessageStatus.APPROVED,
+                "scheduled_at": None
+            }
+        }
+    )
+    
+    await log_audit(current_user["tenant_id"], current_user["id"], "unschedule", "message", message_id)
+    
+    return {"message": "Schedule removed"}
 
 @api_router.put("/messages/{message_id}/content")
 async def update_message_content(
