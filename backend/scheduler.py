@@ -32,7 +32,7 @@ async def send_whatsapp_message(tenant_id: str, phone: str, message: str) -> dic
         async with httpx.AsyncClient(timeout=30.0) as client:
             response = await client.post(
                 f"{WA_WEB_SERVICE_URL}/session/{tenant_id}/send",
-                json={"to": phone, "message": message}
+                json={"to_phone": phone, "message": message}
             )
             if response.status_code == 200:
                 return {"success": True, "data": response.json()}
