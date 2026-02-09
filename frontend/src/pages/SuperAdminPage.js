@@ -59,7 +59,9 @@ import {
   RefreshCw,
   UserCheck,
   UserX,
-  Crown
+  Crown,
+  FileText,
+  Eye
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -71,6 +73,7 @@ const adminNavigation = [
   { name: "Users", href: "/admin/users", icon: Users },
   { name: "Plans", href: "/admin/plans", icon: Package },
   { name: "Subscriptions", href: "/admin/subscriptions", icon: CreditCard },
+  { name: "Pages", href: "/admin/pages", icon: FileText },
 ];
 
 // Admin Layout
