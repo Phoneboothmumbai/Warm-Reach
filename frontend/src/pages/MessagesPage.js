@@ -620,7 +620,7 @@ export const MessagesPage = () => {
                         </div>
                       </div>
 
-                      <div className="flex gap-2 shrink-0">
+                      <div className="flex gap-2 shrink-0 flex-wrap">
                         {canEdit && (
                           <Button
                             variant="outline"
@@ -629,6 +629,30 @@ export const MessagesPage = () => {
                             data-testid={`edit-message-${message.id}`}
                           >
                             <Edit className="w-4 h-4" />
+                          </Button>
+                        )}
+                        {/* Schedule/Reschedule button - show for pending, approved, scheduled */}
+                        {["pending_approval", "approved", "scheduled"].includes(message.status) && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => openScheduleDialog(message)}
+                            className="text-blue-600 hover:bg-blue-500/10"
+                            data-testid={`schedule-message-${message.id}`}
+                          >
+                            <Calendar className="w-4 h-4" />
+                          </Button>
+                        )}
+                        {/* Unschedule button - only for scheduled messages */}
+                        {message.status === "scheduled" && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleUnschedule(message.id)}
+                            className="text-orange-600 hover:bg-orange-500/10"
+                            data-testid={`unschedule-message-${message.id}`}
+                          >
+                            <Clock className="w-4 h-4" />
                           </Button>
                         )}
                         <Button
