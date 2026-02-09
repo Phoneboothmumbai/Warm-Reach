@@ -968,14 +968,16 @@ export const MessagesPage = () => {
               Schedule {selectedMessages.length} Messages
             </DialogTitle>
             <DialogDescription>
-              Schedule selected messages with interval spacing to avoid spam
+              Messages will be scheduled with random gaps to avoid platform bans
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="p-3 bg-blue-500/10 rounded-lg">
               <p className="text-sm">
-                <strong>{selectedMessages.length}</strong> messages will be scheduled starting from the time below,
-                with <strong>{scheduleForm.interval} minutes</strong> between each message.
+                <strong>{selectedMessages.length}</strong> messages will be scheduled starting from the time below.
+              </p>
+              <p className="text-xs text-muted-foreground mt-1">
+                ⏱️ Random 30-60 minute gaps will be added automatically between each message to avoid bans.
               </p>
             </div>
             <div className="grid grid-cols-2 gap-4">
@@ -999,36 +1001,19 @@ export const MessagesPage = () => {
                 />
               </div>
             </div>
-            <div className="space-y-2">
-              <Label>Interval (minutes between messages)</Label>
-              <Select 
-                value={String(scheduleForm.interval)} 
-                onValueChange={(v) => setScheduleForm({...scheduleForm, interval: parseInt(v)})}
-              >
-                <SelectTrigger data-testid="interval-select">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="1">1 minute</SelectItem>
-                  <SelectItem value="2">2 minutes</SelectItem>
-                  <SelectItem value="5">5 minutes</SelectItem>
-                  <SelectItem value="10">10 minutes</SelectItem>
-                  <SelectItem value="15">15 minutes</SelectItem>
-                  <SelectItem value="30">30 minutes</SelectItem>
-                  <SelectItem value="60">1 hour</SelectItem>
-                </SelectContent>
-              </Select>
+            <div className="p-3 bg-muted/30 rounded-lg">
+              <p className="text-xs text-muted-foreground">
+                <strong>Estimated completion:</strong> {scheduleForm.date && scheduleForm.time ? 
+                  new Date(
+                    new Date(`${scheduleForm.date}T${scheduleForm.time}`).getTime() + 
+                    (selectedMessages.length - 1) * 45 * 60000
+                  ).toLocaleString() 
+                  : "..."
+                }
+                <br/>
+                <span className="text-muted-foreground/70">(Based on avg 45 min gap)</span>
+              </p>
             </div>
-            <p className="text-xs text-muted-foreground">
-              Last message will be sent at approximately{" "}
-              {scheduleForm.date && scheduleForm.time ? 
-                new Date(
-                  new Date(`${scheduleForm.date}T${scheduleForm.time}`).getTime() + 
-                  (selectedMessages.length - 1) * scheduleForm.interval * 60000
-                ).toLocaleString() 
-                : "..."
-              }
-            </p>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setBulkScheduleDialogOpen(false)}>
