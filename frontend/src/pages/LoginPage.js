@@ -28,7 +28,7 @@ export const LoginPage = () => {
     try {
       await login(loginForm.email, loginForm.password);
       toast.success("Welcome back!");
-      navigate("/dashboard");
+      navigate("/app/dashboard");
     } catch (error) {
       toast.error(error.message);
     } finally {
@@ -42,7 +42,7 @@ export const LoginPage = () => {
     try {
       await register(registerForm);
       toast.success("Account created successfully!");
-      navigate("/dashboard");
+      navigate("/app/dashboard");
     } catch (error) {
       toast.error(error.message);
     } finally {
