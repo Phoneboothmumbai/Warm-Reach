@@ -410,9 +410,9 @@ const LandingPage = () => {
               © 2026 WarmReach. All rights reserved.
             </p>
             <div className="flex gap-6 text-sm text-muted-foreground">
-              <a href="#" className="hover:text-foreground transition-colors">Privacy Policy</a>
-              <a href="#" className="hover:text-foreground transition-colors">Terms of Service</a>
-              <a href="#" className="hover:text-foreground transition-colors">Contact</a>
+              <a href="/page/privacy-policy" className="hover:text-foreground transition-colors">Privacy Policy</a>
+              <a href="/page/terms-of-service" className="hover:text-foreground transition-colors">Terms of Service</a>
+              <a href="/page/contact" className="hover:text-foreground transition-colors">Contact</a>
             </div>
           </div>
         </div>
