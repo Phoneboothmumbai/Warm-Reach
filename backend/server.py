@@ -2011,6 +2011,17 @@ async def generate_batch_messages(
                 skipped += 1
                 continue
             
+            # Check if this blueprint was already used for this contact (any status)
+            blueprint_used = await db.messages.find_one({
+                "tenant_id": tenant_id,
+                "contact_id": contact["id"],
+                "blueprint_id": blueprint["id"]
+            })
+            if blueprint_used:
+                # This blueprint was already used for this contact, skip
+                skipped += 1
+                continue
+            
             try:
                 # Get previous messages for this contact AND all recent messages for dedup
                 previous_messages = await get_previous_messages_for_contact(
