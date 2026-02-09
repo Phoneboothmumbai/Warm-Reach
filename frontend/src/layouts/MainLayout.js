@@ -33,13 +33,13 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 
 const navigation = [
-  { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-  { name: "Contacts", href: "/contacts", icon: Users },
-  { name: "Blueprints", href: "/blueprints", icon: FileText },
-  { name: "Messages", href: "/messages", icon: MessageSquare },
-  { name: "Inbox", href: "/inbox", icon: Inbox },
-  { name: "WhatsApp", href: "/whatsapp", icon: MessageCircle },
-  { name: "Settings", href: "/settings", icon: Settings },
+  { name: "Dashboard", href: "/app/dashboard", icon: LayoutDashboard },
+  { name: "Contacts", href: "/app/contacts", icon: Users },
+  { name: "Blueprints", href: "/app/blueprints", icon: FileText },
+  { name: "Messages", href: "/app/messages", icon: MessageSquare },
+  { name: "Inbox", href: "/app/inbox", icon: Inbox },
+  { name: "WhatsApp", href: "/app/whatsapp", icon: MessageCircle },
+  { name: "Settings", href: "/app/settings", icon: Settings },
 ];
 
 export const MainLayout = ({ children }) => {
