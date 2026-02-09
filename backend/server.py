@@ -4580,6 +4580,7 @@ app.add_middleware(
 async def startup_event():
     """Initialize default data on startup"""
     await init_default_plans()
+    await init_default_pages()
 
 @app.on_event("shutdown")
 async def shutdown_db_client():
