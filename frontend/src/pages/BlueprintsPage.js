@@ -521,6 +521,17 @@ No links in first post.`;
                     <><Square className="w-4 h-4 mr-2" /> Select All</>
                   )}
                 </Button>
+                {selectedBlueprints.length > 0 && (
+                  <Button
+                    variant="outline"
+                    onClick={handleBulkDeleteBlueprints}
+                    className="text-destructive hover:bg-destructive/10"
+                    data-testid="bulk-delete-btn"
+                  >
+                    <Trash2 className="w-4 h-4 mr-2" />
+                    Delete ({selectedBlueprints.length})
+                  </Button>
+                )}
                 <Button
                   onClick={handleBulkApprove}
                   disabled={selectedBlueprints.length === 0}
