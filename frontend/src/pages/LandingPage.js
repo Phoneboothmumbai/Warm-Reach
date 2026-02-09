@@ -341,113 +341,46 @@ const LandingPage = () => {
           </div>
 
           <div className="grid md:grid-cols-3 gap-8 max-w-5xl mx-auto">
-            {/* Free Plan */}
-            <Card className="bg-background">
-              <CardContent className="p-8">
-                <div className="text-center mb-6">
-                  <h3 className="font-semibold text-xl mb-2">Starter</h3>
-                  <div className="text-4xl font-bold mb-2">Free</div>
-                  <p className="text-muted-foreground text-sm">Perfect for trying out</p>
-                </div>
-                <ul className="space-y-3 mb-8">
-                  <li className="flex items-center gap-2">
-                    <CheckCircle className="w-5 h-5 text-primary" />
-                    <span>10 messages/day</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <CheckCircle className="w-5 h-5 text-primary" />
-                    <span>50 contacts</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <CheckCircle className="w-5 h-5 text-primary" />
-                    <span>WhatsApp only</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <CheckCircle className="w-5 h-5 text-primary" />
-                    <span>Basic templates</span>
-                  </li>
-                </ul>
-                <Button variant="outline" className="w-full" onClick={() => navigate("/register")}>
-                  Get Started
-                </Button>
-              </CardContent>
-            </Card>
-
-            {/* Pro Plan */}
-            <Card className="bg-background border-primary shadow-lg relative">
-              <div className="absolute -top-4 left-1/2 -translate-x-1/2">
-                <Badge className="bg-primary">Most Popular</Badge>
-              </div>
-              <CardContent className="p-8">
-                <div className="text-center mb-6">
-                  <h3 className="font-semibold text-xl mb-2">Professional</h3>
-                  <div className="text-4xl font-bold mb-2">₹2,999<span className="text-lg font-normal">/mo</span></div>
-                  <p className="text-muted-foreground text-sm">For growing businesses</p>
-                </div>
-                <ul className="space-y-3 mb-8">
-                  <li className="flex items-center gap-2">
-                    <CheckCircle className="w-5 h-5 text-primary" />
-                    <span>50 messages/day</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <CheckCircle className="w-5 h-5 text-primary" />
-                    <span>500 contacts</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <CheckCircle className="w-5 h-5 text-primary" />
-                    <span>WhatsApp + Email</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <CheckCircle className="w-5 h-5 text-primary" />
-                    <span>AI personalization</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <CheckCircle className="w-5 h-5 text-primary" />
-                    <span>Custom blueprints</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <CheckCircle className="w-5 h-5 text-primary" />
-                    <span>Priority support</span>
-                  </li>
-                </ul>
-                <Button className="w-full" onClick={() => navigate("/register")}>
-                  Start Free Trial
-                </Button>
-              </CardContent>
-            </Card>
-
-            {/* Enterprise Plan */}
-            <Card className="bg-background">
-              <CardContent className="p-8">
-                <div className="text-center mb-6">
-                  <h3 className="font-semibold text-xl mb-2">Enterprise</h3>
-                  <div className="text-4xl font-bold mb-2">Custom</div>
-                  <p className="text-muted-foreground text-sm">For large organizations</p>
-                </div>
-                <ul className="space-y-3 mb-8">
-                  <li className="flex items-center gap-2">
-                    <CheckCircle className="w-5 h-5 text-primary" />
-                    <span>Unlimited messages</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <CheckCircle className="w-5 h-5 text-primary" />
-                    <span>Unlimited contacts</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <CheckCircle className="w-5 h-5 text-primary" />
-                    <span>All channels</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <CheckCircle className="w-5 h-5 text-primary" />
-                    <span>API access</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <CheckCircle className="w-5 h-5 text-primary" />
-                    <span>Dedicated support</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <CheckCircle className="w-5 h-5 text-primary" />
-                    <span>Custom integrations</span>
+            {plans.map((plan) => (
+              <Card 
+                key={plan.id} 
+                className={`bg-background ${plan.is_popular ? "border-primary shadow-lg relative" : ""}`}
+              >
+                {plan.is_popular && (
+                  <div className="absolute -top-4 left-1/2 -translate-x-1/2">
+                    <Badge className="bg-primary">Most Popular</Badge>
+                  </div>
+                )}
+                <CardContent className="p-8">
+                  <div className="text-center mb-6">
+                    <h3 className="font-semibold text-xl mb-2">{plan.name}</h3>
+                    <div className="text-4xl font-bold mb-2">
+                      {plan.price === 0 ? "Free" : `₹${plan.price.toLocaleString()}`}
+                      {plan.price > 0 && <span className="text-lg font-normal">/{plan.billing_cycle === "monthly" ? "mo" : plan.billing_cycle}</span>}
+                    </div>
+                    <p className="text-muted-foreground text-sm">{plan.description}</p>
+                  </div>
+                  <ul className="space-y-3 mb-8">
+                    {plan.features?.map((feature, index) => (
+                      <li key={index} className="flex items-center gap-2">
+                        <CheckCircle className="w-5 h-5 text-primary shrink-0" />
+                        <span>{feature}</span>
+                      </li>
+                    ))}
+                  </ul>
+                  <Button 
+                    variant={plan.is_popular ? "default" : "outline"} 
+                    className="w-full" 
+                    onClick={() => navigate("/register")}
+                  >
+                    {plan.price === 0 ? "Get Started" : "Start Free Trial"}
+                  </Button>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </div>
+      </section>
                   </li>
                 </ul>
                 <Button variant="outline" className="w-full">
