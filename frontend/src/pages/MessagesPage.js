@@ -73,6 +73,8 @@ export const MessagesPage = () => {
   
   const [batchDialogOpen, setBatchDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [scheduleDialogOpen, setScheduleDialogOpen] = useState(false);
+  const [bulkScheduleDialogOpen, setBulkScheduleDialogOpen] = useState(false);
   const [selectedMessage, setSelectedMessage] = useState(null);
   const [generating, setGenerating] = useState(false);
   const [batchResult, setBatchResult] = useState(null);
@@ -85,6 +87,13 @@ export const MessagesPage = () => {
 
   const [editedContent, setEditedContent] = useState("");
   const [selectedMessages, setSelectedMessages] = useState([]);
+  
+  // Schedule form state
+  const [scheduleForm, setScheduleForm] = useState({
+    date: "",
+    time: "",
+    interval: 5
+  });
 
   useEffect(() => {
     fetchData();
