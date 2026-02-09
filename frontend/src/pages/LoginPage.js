@@ -11,8 +11,10 @@ import { toast } from "sonner";
 
 export const LoginPage = () => {
   const navigate = useNavigate();
+  const location = window.location.pathname;
   const { login, register } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState(location === "/register" ? "register" : "login");
   
   const [loginForm, setLoginForm] = useState({ email: "", password: "" });
   const [registerForm, setRegisterForm] = useState({
