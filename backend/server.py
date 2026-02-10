@@ -2825,13 +2825,13 @@ async def create_or_update_business_profile(
     if existing:
         # Update existing profile
         update_data = profile_data.model_dump()
-        update_data["updated_at"] = now
+        update_data["updated_at"] = now.isoformat()
         
         await db.business_profiles.update_one(
             {"tenant_id": tenant_id},
             {"$set": update_data}
         )
-        await log_audit(tenant_id, current_user["id"], "update", "business_profile", existing["id"], update_data)
+        await log_audit(tenant_id, current_user["id"], "update", "business_profile", existing["id"], {"updated": True})
         return {"message": "Business profile updated", "id": existing["id"]}
     else:
         # Create new profile
@@ -2840,8 +2840,8 @@ async def create_or_update_business_profile(
             **profile_data.model_dump()
         )
         profile_dict = profile.model_dump()
-        profile_dict["created_at"] = now
-        profile_dict["updated_at"] = now
+        profile_dict["created_at"] = now.isoformat()
+        profile_dict["updated_at"] = now.isoformat()
         
         await db.business_profiles.insert_one(profile_dict)
         await log_audit(tenant_id, current_user["id"], "create", "business_profile", profile.id, {})
