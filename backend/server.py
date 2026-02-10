@@ -202,7 +202,7 @@ OUTPUT: Generate ONLY the message text. No subject lines, no labels, no explanat
         llm_chat = LlmChat(
             api_key=EMERGENT_LLM_KEY,
             session_id=f"msg_gen_{contact.get('id', 'unknown')}_{int(time.time())}_{variation_seed}",
-            system_message="You are a creative B2B copywriter. Each message you write is unique and personalized. Never use the same opening twice. Vary your sentence structure, word choice, and approach every time."
+            system_message="You are a creative B2B copywriter. Generate content ONLY based on the company profile provided. Each message you write is unique and personalized. Never use the same opening twice. Vary your sentence structure, word choice, and approach every time."
         )
         
         # Use GPT-5.2 model with temperature for variation
