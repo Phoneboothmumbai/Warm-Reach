@@ -2864,12 +2864,12 @@ async def update_business_profile(
     
     update_data = {k: v for k, v in profile_data.model_dump().items() if v is not None}
     if update_data:
-        update_data["updated_at"] = datetime.now(timezone.utc)
+        update_data["updated_at"] = datetime.now(timezone.utc).isoformat()
         await db.business_profiles.update_one(
             {"tenant_id": tenant_id},
             {"$set": update_data}
         )
-        await log_audit(tenant_id, current_user["id"], "update", "business_profile", existing["id"], update_data)
+        await log_audit(tenant_id, current_user["id"], "update", "business_profile", existing["id"], {"updated": True})
     
     return {"message": "Business profile updated"}
 
