@@ -1768,7 +1768,10 @@ async def generate_ai_blueprint_endpoint(
         target_role=request.target_role,
         additional_context=request.additional_context,
         existing_blueprints=existing_structures,
-        tenant_id=current_user["tenant_id"]
+        tenant_id=current_user["tenant_id"],
+        message_length=request.message_length.value if hasattr(request.message_length, 'value') else request.message_length,
+        cta_type=request.cta_type.value if hasattr(request.cta_type, 'value') else request.cta_type,
+        custom_cta=request.custom_cta
     )
     
     # Create blueprint (not approved by default)
@@ -1782,7 +1785,10 @@ async def generate_ai_blueprint_endpoint(
         structure=ai_result["structure"],
         cooldown_days=7,
         tenant_id=current_user["tenant_id"],
-        is_approved=False  # Requires manual approval
+        is_approved=False,
+        message_length=request.message_length,
+        cta_type=request.cta_type,
+        custom_cta=request.custom_cta
     )
     
     doc = blueprint.model_dump()
