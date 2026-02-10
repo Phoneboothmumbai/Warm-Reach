@@ -835,6 +835,33 @@ class ContactUpdate(BaseModel):
     notes: Optional[str] = None
     context_flags: Optional[ContextFlags] = None
 
+# Custom Options Models
+class MessageLength(str, Enum):
+    SHORT = "short"      # 2-3 lines
+    MEDIUM = "medium"    # 4-6 lines
+    LONG = "long"        # 7-10 lines
+
+class CTAType(str, Enum):
+    SOFT_QUESTION = "soft_question"      # "Would you be open to..."
+    DIRECT_ASK = "direct_ask"            # "Let's schedule a call"
+    VALUE_OFFER = "value_offer"          # "I'd be happy to share..."
+    NO_CTA = "no_cta"                    # Just information, no ask
+    CUSTOM = "custom"                    # User-defined CTA
+
+class CustomOption(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    tenant_id: str
+    option_type: str  # "intent" or "angle"
+    name: str
+    description: Optional[str] = None
+    is_active: bool = True
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+class CustomOptionCreate(BaseModel):
+    option_type: str  # "intent" or "angle"
+    name: str
+    description: Optional[str] = None
+
 class BlueprintBase(BaseModel):
     name: str
     description: Optional[str] = None
