@@ -304,6 +304,7 @@ function App() {
                     <Routes>
                       <Route path="/" element={<Navigate to="/app/dashboard" replace />} />
                       <Route path="/dashboard" element={<DashboardPage />} />
+                      <Route path="/business-profile" element={<BusinessProfilePage />} />
                       <Route path="/contacts" element={<ContactsPage />} />
                       <Route path="/blueprints" element={<BlueprintsPage />} />
                       <Route path="/messages" element={<MessagesPage />} />
