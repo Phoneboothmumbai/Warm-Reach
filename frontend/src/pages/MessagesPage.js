@@ -153,6 +153,8 @@ export const MessagesPage = () => {
         
         if (result.generated_count > 0) {
           toast.success(`Generated ${result.generated_count} unique messages!`);
+        } else if (result.skipped_count > 0) {
+          toast.warning(`No new messages generated. ${result.skipped_count} contacts skipped (already contacted this month or no matching blueprints).`);
         } else {
           toast.warning("No messages could be generated. Check contacts and blueprints.");
         }
@@ -163,7 +165,8 @@ export const MessagesPage = () => {
         toast.error(error.detail || "Failed to generate messages");
       }
     } catch (error) {
-      toast.error("Failed to generate messages");
+      console.error("Generate error:", error);
+      toast.error("Failed to generate messages. Please try again.");
     } finally {
       setGenerating(false);
     }
