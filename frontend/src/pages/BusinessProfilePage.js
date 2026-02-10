@@ -13,7 +13,7 @@ import { Building2, Globe, Target, Users, Package, Sparkles, Plus, X, Save, Load
 const API = process.env.REACT_APP_BACKEND_URL;
 
 export default function BusinessProfilePage() {
-  const { user } = useAuth();
+  const { user, authFetch } = useAuth();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [profile, setProfile] = useState({
@@ -31,18 +31,6 @@ export default function BusinessProfilePage() {
   
   const [newProduct, setNewProduct] = useState({ name: "", description: "" });
   const [newClient, setNewClient] = useState("");
-
-  const authFetch = async (url, options = {}) => {
-    const token = localStorage.getItem("token");
-    return fetch(url, {
-      ...options,
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-        ...options.headers,
-      },
-    });
-  };
 
   useEffect(() => {
     fetchProfile();
