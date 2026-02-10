@@ -1772,7 +1772,8 @@ async def generate_batch_ai_blueprints(
                         tone=request.tone,
                         industry=request.industry,
                         target_role=request.target_role,
-                        existing_blueprints=existing_structures + [g.get("structure", "") for g in generated]
+                        existing_blueprints=existing_structures + [g.get("structure", "") for g in generated],
+                        tenant_id=current_user["tenant_id"]
                     )
                     
                     # Create blueprint (not approved by default)
