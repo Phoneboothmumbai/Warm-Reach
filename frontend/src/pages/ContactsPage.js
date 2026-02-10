@@ -6,6 +6,7 @@ import {
   Search,
   Filter,
   Upload,
+  Download,
   MoreHorizontal,
   Mail,
   Phone,
