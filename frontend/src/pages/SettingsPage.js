@@ -138,10 +138,77 @@ export const SettingsPage = () => {
         const ipData = await ipRes.json();
         setIpWhitelist(ipData);
       }
+      if (customRes.ok) {
+        const customData = await customRes.json();
+        setCustomOptions(customData);
+      }
     } catch (error) {
       toast.error("Failed to load settings");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleAddCustomOption = async (optionType, data) => {
+    if (!isAdmin) {
+      toast.error("Only admin can add custom options");
+      return;
+    }
+    
+    if (!data.name.trim()) {
+      toast.error("Name is required");
+      return;
+    }
+
+    setSavingOption(true);
+    try {
+      const response = await authFetch(`${API}/settings/custom-options`, {
+        method: "POST",
+        body: JSON.stringify({
+          option_type: optionType,
+          name: data.name,
+          description: data.description
+        })
+      });
+
+      if (response.ok) {
+        toast.success(`Custom ${optionType} added`);
+        fetchSettings();
+        // Reset form
+        if (optionType === "intent") setNewIntent({ name: "", description: "" });
+        if (optionType === "angle") setNewAngle({ name: "", description: "" });
+        if (optionType === "cta") setNewCta({ name: "", description: "" });
+      } else {
+        const error = await response.json();
+        toast.error(error.detail || `Failed to add custom ${optionType}`);
+      }
+    } catch (error) {
+      toast.error(`Failed to add custom ${optionType}`);
+    } finally {
+      setSavingOption(false);
+    }
+  };
+
+  const handleDeleteCustomOption = async (optionId) => {
+    if (!isAdmin) {
+      toast.error("Only admin can delete custom options");
+      return;
+    }
+
+    try {
+      const response = await authFetch(`${API}/settings/custom-options/${optionId}`, {
+        method: "DELETE"
+      });
+
+      if (response.ok) {
+        toast.success("Custom option deleted");
+        fetchSettings();
+      } else {
+        const error = await response.json();
+        toast.error(error.detail || "Failed to delete");
+      }
+    } catch (error) {
+      toast.error("Failed to delete custom option");
     }
   };
 
