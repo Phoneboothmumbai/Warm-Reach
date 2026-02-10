@@ -2118,7 +2118,9 @@ async def generate_batch_messages(
 ):
     """
     Automatically generate multiple unique messages at once.
-    System auto-selects eligible contacts and appropriate blueprints.
+    - Max 2 messages per contact per month
+    - Messages are scheduled for future if contact already has pending/recent messages
+    - Does not block generation - queues them up
     """
     tenant_id = current_user["tenant_id"]
     generated = []
@@ -2126,7 +2128,7 @@ async def generate_batch_messages(
     errors = []
     
     # Get all blueprints (filter by channel if specified)
-    blueprint_query = {"tenant_id": tenant_id}
+    blueprint_query = {"tenant_id": tenant_id, "is_approved": True}
     if request.channel:
         blueprint_query["channel"] = request.channel
     if request.blueprint_id:
@@ -2135,15 +2137,14 @@ async def generate_batch_messages(
     blueprints = await db.blueprints.find(blueprint_query, {"_id": 0}).to_list(100)
     
     if not blueprints:
-        raise HTTPException(status_code=400, detail="No blueprints found. Create blueprints first.")
+        raise HTTPException(status_code=400, detail="No approved blueprints found. Create and approve blueprints first.")
     
     # Get eligible contacts
     contact_query = {
         "tenant_id": tenant_id,
-        "status": {"$nin": [ContactStatus.BLACKLISTED, ContactStatus.NOT_INTERESTED, ContactStatus.INTERESTED]},
+        "status": {"$nin": [ContactStatus.BLACKLISTED, ContactStatus.NOT_INTERESTED]},
         "context_flags.do_not_contact": {"$ne": True},
-        "context_flags.negative_sentiment_detected": {"$ne": True},
-        "context_flags.has_open_support_ticket": {"$ne": True}
+        "context_flags.negative_sentiment_detected": {"$ne": True}
     }
     
     contacts = await db.contacts.find(contact_query, {"_id": 0}).to_list(500)
@@ -2151,11 +2152,16 @@ async def generate_batch_messages(
     if not contacts:
         raise HTTPException(status_code=400, detail="No eligible contacts found.")
     
-    # Track which contacts we've already processed
+    # Calculate start of current month for monthly limit check
+    now = datetime.now(timezone.utc)
+    month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    
+    # Track which contacts we've already processed in this batch
     processed_contacts = set()
     
-    # Shuffle contacts for variety
+    # Shuffle contacts and blueprints for variety
     random.shuffle(contacts)
+    random.shuffle(blueprints)
     
     for contact in contacts:
         if len(generated) >= request.max_messages:
@@ -2164,72 +2170,56 @@ async def generate_batch_messages(
         if contact["id"] in processed_contacts:
             continue
         
-        # Find a suitable blueprint for this contact
+        # Check monthly limit: max 2 messages per contact per month
+        monthly_count = await db.messages.count_documents({
+            "tenant_id": tenant_id,
+            "contact_id": contact["id"],
+            "created_at": {"$gte": month_start.isoformat()}
+        })
+        
+        if monthly_count >= 2:
+            skipped += 1
+            continue
+        
+        # Find a suitable blueprint that hasn't been used for this contact
         for blueprint in blueprints:
             channel = blueprint["channel"]
             
-            # Check rate limit for this channel
-            can_send_rate, remaining = await check_rate_limit(tenant_id, channel)
-            if not can_send_rate:
-                continue
-            
-            # Check cooldown
-            can_send_cool, _ = await check_cooldown(contact, blueprint)
-            if not can_send_cool:
-                skipped += 1
-                continue
-            
-            # Check if we already have a pending message for this contact+channel
-            existing = await db.messages.find_one({
-                "tenant_id": tenant_id,
-                "contact_id": contact["id"],
-                "channel": channel,
-                "status": {"$in": [MessageStatus.PENDING_APPROVAL, MessageStatus.APPROVED, MessageStatus.SCHEDULED]}
-            })
-            if existing:
-                skipped += 1
-                continue
-            
-            # Check if this blueprint was already used for this contact (any status)
+            # Check if this blueprint was already used for this contact
             blueprint_used = await db.messages.find_one({
                 "tenant_id": tenant_id,
                 "contact_id": contact["id"],
                 "blueprint_id": blueprint["id"]
             })
             if blueprint_used:
-                # This blueprint was already used for this contact, skip
-                skipped += 1
-                continue
+                continue  # Try next blueprint
             
             try:
-                # Get previous messages for this contact AND all recent messages for dedup
+                # Get previous messages for deduplication
                 previous_messages = await get_previous_messages_for_contact(
                     tenant_id, contact["id"], channel
                 )
                 
-                # Also get recently generated messages (last 20) to avoid global duplicates
                 recent_messages = await db.messages.find(
                     {"tenant_id": tenant_id, "channel": channel},
                     {"_id": 0, "content": 1}
                 ).sort("created_at", -1).limit(20).to_list(20)
                 recent_contents = [m.get("content", "") for m in recent_messages if m.get("content")]
                 
-                # Combine for deduplication context
                 all_previous = list(set(previous_messages + recent_contents))[:10]
                 
                 # Generate unique message using AI
                 content = await generate_ai_message(contact, blueprint, all_previous, tenant_id)
                 
-                # Create content hash
+                # Create content hash for deduplication
                 content_hash = hashlib.md5(content.encode()).hexdigest()
                 
-                # Check for duplicate content (exact match)
+                # Check for duplicate and regenerate if needed
                 duplicate = await db.messages.find_one({
                     "tenant_id": tenant_id,
                     "content_hash": content_hash
                 })
                 
-                # Try regenerating up to 3 times if duplicate
                 regen_attempts = 0
                 while duplicate and regen_attempts < 3:
                     regen_attempts += 1
@@ -2240,6 +2230,28 @@ async def generate_batch_messages(
                         "tenant_id": tenant_id,
                         "content_hash": content_hash
                     })
+                
+                if duplicate:
+                    errors.append(f"Could not generate unique message for {contact['email']}")
+                    continue
+                
+                # Calculate scheduled date based on existing messages for this contact
+                scheduled_at = None
+                existing_scheduled = await db.messages.find({
+                    "tenant_id": tenant_id,
+                    "contact_id": contact["id"],
+                    "status": {"$in": [MessageStatus.PENDING_APPROVAL, MessageStatus.APPROVED, MessageStatus.SCHEDULED]}
+                }).sort("scheduled_at", -1).to_list(10)
+                
+                if existing_scheduled:
+                    # Schedule at least 14 days after the last scheduled/pending message
+                    last_scheduled = existing_scheduled[0].get("scheduled_at")
+                    if last_scheduled:
+                        if isinstance(last_scheduled, str):
+                            last_scheduled = datetime.fromisoformat(last_scheduled.replace('Z', '+00:00'))
+                        scheduled_at = last_scheduled + timedelta(days=14)
+                    else:
+                        scheduled_at = now + timedelta(days=14)
                 
                 if duplicate:
                     errors.append(f"Could not generate unique message for {contact['email']}")
