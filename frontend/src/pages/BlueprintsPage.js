@@ -1148,20 +1148,21 @@ No links in first post.`;
                     <div className="space-y-2">
                       <Label>Intents (select multiple)</Label>
                       <div className="flex flex-wrap gap-2">
-                        {intentOptions.map((opt) => (
+                        {(customOptions.intents?.length > 0 ? customOptions.intents : intentOptions).map((opt) => (
                           <Button
-                            key={opt.value}
+                            key={opt.name || opt.value}
                             type="button"
-                            variant={aiForm.batch_intents.includes(opt.value) ? "default" : "outline"}
+                            variant={aiForm.batch_intents.includes(opt.name || opt.value) ? "default" : "outline"}
                             size="sm"
                             onClick={() => {
-                              const newIntents = aiForm.batch_intents.includes(opt.value)
-                                ? aiForm.batch_intents.filter(i => i !== opt.value)
-                                : [...aiForm.batch_intents, opt.value];
+                              const val = opt.name || opt.value;
+                              const newIntents = aiForm.batch_intents.includes(val)
+                                ? aiForm.batch_intents.filter(i => i !== val)
+                                : [...aiForm.batch_intents, val];
                               setAiForm({ ...aiForm, batch_intents: newIntents });
                             }}
                           >
-                            {opt.label}
+                            {opt.name || opt.label}
                           </Button>
                         ))}
                       </div>
@@ -1170,14 +1171,15 @@ No links in first post.`;
                     <div className="space-y-2">
                       <Label>Angles (select multiple)</Label>
                       <div className="flex flex-wrap gap-2">
-                        {angleOptions.map((opt) => (
+                        {(customOptions.angles?.length > 0 ? customOptions.angles : angleOptions).map((opt) => (
                           <Button
-                            key={opt.value}
+                            key={opt.name || opt.value}
                             type="button"
-                            variant={aiForm.batch_angles.includes(opt.value) ? "default" : "outline"}
+                            variant={aiForm.batch_angles.includes(opt.name || opt.value) ? "default" : "outline"}
                             size="sm"
                             onClick={() => {
-                              const newAngles = aiForm.batch_angles.includes(opt.value)
+                              const val = opt.name || opt.value;
+                              const newAngles = aiForm.batch_angles.includes(val)
                                 ? aiForm.batch_angles.filter(a => a !== opt.value)
                                 : [...aiForm.batch_angles, opt.value];
                               setAiForm({ ...aiForm, batch_angles: newAngles });
