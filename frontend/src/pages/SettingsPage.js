@@ -16,7 +16,11 @@ import {
   Eye,
   EyeOff,
   Trash2,
-  ExternalLink
+  ExternalLink,
+  Plus,
+  X,
+  Target,
+  Compass
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -38,7 +42,6 @@ import {
   AlertTitle,
 } from "@/components/ui/alert";
 import { toast } from "sonner";
-import { cn } from "@/lib/utils";
 
 const approvalModeConfig = {
   manual: {
