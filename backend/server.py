@@ -1043,12 +1043,15 @@ class BatchGenerateResponse(BaseModel):
 
 class AIBlueprintRequest(BaseModel):
     channel: Channel
-    intent: Intent
-    angle: Angle
+    intent: str  # Changed to str to support custom intents
+    angle: str   # Changed to str to support custom angles
     tone: Tone
     industry: Optional[str] = None
     target_role: Optional[str] = None
     additional_context: Optional[str] = None
+    message_length: MessageLength = MessageLength.MEDIUM
+    cta_type: CTAType = CTAType.SOFT_QUESTION
+    custom_cta: Optional[str] = None
 
 class AIBlueprintResponse(BaseModel):
     blueprint: Dict[str, Any]
