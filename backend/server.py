@@ -62,22 +62,22 @@ async def generate_ai_message(contact: Dict, blueprint: Dict, previous_messages:
         import random
         import time
         
-        # Fetch business profile for tenant (dynamic)
+        # Fetch business profile for tenant (dynamic) - REQUIRED
         business_context = ""
         if tenant_id:
             profile = await db.business_profiles.find_one({"tenant_id": tenant_id}, {"_id": 0})
             if profile and profile.get("company_name"):
                 # Build dynamic business context from profile
                 products = profile.get("products_services", [])
-                products_text = "\n".join([f"- {p.get('name', '')}: {p.get('description', '')}" for p in products]) if products else "- Various IT solutions and services"
+                products_text = "\n".join([f"- {p.get('name', '')}: {p.get('description', '')}" for p in products]) if products else "- Products and services as described above"
                 
                 clients = profile.get("key_clients", [])
-                clients_text = ", ".join(clients) if clients else "Various enterprise clients"
+                clients_text = ", ".join(clients) if clients else "Various clients"
                 
                 business_context = f"""
 ABOUT OUR COMPANY:
 {profile.get('company_name', 'Our Company')} - {profile.get('tagline', '')}
-Industry: {profile.get('industry', 'Technology')}
+Industry: {profile.get('industry', '')}
 Website: {profile.get('website', '')}
 
 {profile.get('about', '')}
@@ -102,74 +102,12 @@ STRICT RULES:
 - Focus on business value and solving problems
 - Position as a trusted partner, not a vendor
 - Tailor message based on contact's industry and needs
+- Generate content ONLY about the company described above
 """
         
-        # Fallback to default context if no profile exists
+        # If no business profile exists, return error - REQUIRE business profile
         if not business_context:
-            business_context = """
-ABOUT OUR COMPANY:
-We are an end-to-end IT solutions company focused on keeping businesses running smoothly, securely, and without disruption. Our core services include:
-- Proactive IT support and maintenance
-- Device procurement and lifecycle management
-- Security, backups, and infrastructure management
-- Structured processes with clear SLAs
-- Remote support, asset tracking, and monitoring
-
-NeoStore (our retail/enterprise arm in Mumbai) specializes in:
-- Apple products and accessories
-- Corporate IT setups
-- Repairs, maintenance, and troubleshooting
-- Hardware, networking, and security solutions
-
-BRANDS & SOLUTIONS WE WORK WITH:
-
-HARDWARE BRANDS:
-- Apple (iPhone, iPad, MacBook, iMac, Mac Studio, Mac Pro, Apple Watch, AirPods, Vision Pro)
-- Lenovo (ThinkPad, ThinkCentre, ThinkStation, Yoga, IdeaPad, Legion)
-- Dell (Latitude, OptiPlex, Precision, XPS, Vostro, PowerEdge servers)
-- HP (EliteBook, ProBook, ProDesk, EliteDesk, ZBook, Z workstations)
-
-CLOUD & PRODUCTIVITY:
-- Google Workspace (Gmail, Drive, Docs, Sheets, Meet, Calendar, Admin Console)
-- Microsoft 365 (Outlook, Teams, SharePoint, OneDrive, Word, Excel, PowerPoint)
-- Microsoft Azure (VMs, Active Directory, Intune, Defender)
-
-NETWORKING & SECURITY:
-- Cisco (Meraki, Webex, switches, routers, firewalls)
-- Ubiquiti (UniFi access points, switches, security gateways)
-- Fortinet (FortiGate firewalls, FortiClient)
-- SonicWall (firewalls, VPN)
-
-BACKUP & RECOVERY:
-- Veeam (backup, replication, disaster recovery)
-- Acronis (cyber protection, backup)
-- Datto (business continuity, backup appliances)
-
-ENDPOINT MANAGEMENT:
-- Jamf (Apple device management)
-- Microsoft Intune (cross-platform MDM)
-- Kandji (Apple MDM)
-
-MONITORING & SUPPORT:
-- ConnectWise (RMM, PSA, remote support)
-- NinjaRMM (remote monitoring)
-- Domotz (network monitoring)
-
-VALUE PROPOSITION:
-- Preventive IT that reduces downtime and hidden costs
-- Long-term IT partner, not just a vendor
-- Quietly reliable, responsive, and accountable
-- Real technical expertise, not just sales
-- Expertise across Apple, Windows, and hybrid environments
-
-STRICT RULES:
-- NEVER mention pricing, costs, or specific numbers
-- NEVER mention competitor names (only mention brands we work with)
-- Focus on reducing downtime, operational risk, and business continuity
-- Position as a trusted IT partner, not a vendor
-- Tailor message based on contact's industry and likely tech needs
-- Reference relevant brands/solutions based on context (e.g., Apple for creative industries, Microsoft for enterprise)
-"""
+            raise Exception("Business profile not configured. Please set up your Business Profile in the app before generating messages.")
         
         # Build context about the contact
         contact_name = f"{contact.get('first_name', '')} {contact.get('last_name', '')}".strip()
