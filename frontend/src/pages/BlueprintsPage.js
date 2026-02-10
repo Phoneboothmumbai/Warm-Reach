@@ -327,7 +327,10 @@ export const BlueprintsPage = () => {
             angles: aiForm.batch_angles,
             tone: aiForm.tone,
             industry: aiForm.industry || null,
-            target_role: aiForm.target_role || null
+            target_role: aiForm.target_role || null,
+            message_length: aiForm.message_length,
+            cta_type: aiForm.cta_type,
+            custom_cta: aiForm.cta_type === "custom" ? aiForm.custom_cta : null
           })
         });
       } else {
@@ -341,7 +344,10 @@ export const BlueprintsPage = () => {
             tone: aiForm.tone,
             industry: aiForm.industry || null,
             target_role: aiForm.target_role || null,
-            additional_context: aiForm.additional_context || null
+            additional_context: aiForm.additional_context || null,
+            message_length: aiForm.message_length,
+            cta_type: aiForm.cta_type,
+            custom_cta: aiForm.cta_type === "custom" ? aiForm.custom_cta : null
           })
         });
       }
