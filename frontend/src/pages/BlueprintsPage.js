@@ -79,8 +79,10 @@ const channelConfig = {
 
 const intentOptions = [
   { value: "awareness", label: "Awareness", description: "Introduce yourself and your value" },
-  { value: "conversation", label: "Conversation", description: "Start a dialogue" },
-  { value: "follow_up", label: "Follow-up", description: "Continue previous contact" }
+  { value: "value", label: "Value", description: "Highlight specific value proposition" },
+  { value: "follow_up", label: "Follow-up", description: "Continue previous contact" },
+  { value: "nurture", label: "Nurture", description: "Build relationship over time" },
+  { value: "reactivation", label: "Reactivation", description: "Re-engage dormant contacts" }
 ];
 
 const angleOptions = [
@@ -95,6 +97,20 @@ const toneOptions = [
   { value: "calm_authority", label: "Calm Authority", description: "Professional and confident" },
   { value: "observational", label: "Observational", description: "Insightful and analytical" },
   { value: "direct", label: "Direct", description: "Straightforward and clear" }
+];
+
+const messageLengthOptions = [
+  { value: "short", label: "Short", description: "2-3 lines, very concise" },
+  { value: "medium", label: "Medium", description: "4-6 lines, balanced" },
+  { value: "long", label: "Long", description: "7-10 lines, detailed" }
+];
+
+const ctaOptions = [
+  { value: "soft_question", label: "Soft Question", description: "Would you be open to..." },
+  { value: "direct_ask", label: "Direct Ask", description: "Let's schedule a call" },
+  { value: "value_offer", label: "Value Offer", description: "I'd be happy to share..." },
+  { value: "no_cta", label: "No CTA", description: "No call-to-action" },
+  { value: "custom", label: "Custom CTA", description: "Your own CTA text" }
 ];
 
 export const BlueprintsPage = () => {
