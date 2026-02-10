@@ -1072,8 +1072,10 @@ No links in first post.`;
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
-                            {intentOptions.map((opt) => (
-                              <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                            {(customOptions.intents?.length > 0 ? customOptions.intents : intentOptions).map((opt) => (
+                              <SelectItem key={opt.name || opt.value} value={opt.name || opt.value}>
+                                {opt.name || opt.label}
+                              </SelectItem>
                             ))}
                           </SelectContent>
                         </Select>
@@ -1091,8 +1093,10 @@ No links in first post.`;
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
-                            {angleOptions.map((opt) => (
-                              <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                            {(customOptions.angles?.length > 0 ? customOptions.angles : angleOptions).map((opt) => (
+                              <SelectItem key={opt.name || opt.value} value={opt.name || opt.value}>
+                                {opt.name || opt.label}
+                              </SelectItem>
                             ))}
                           </SelectContent>
                         </Select>
