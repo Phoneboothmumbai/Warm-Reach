@@ -1213,6 +1213,64 @@ No links in first post.`;
                   </div>
                 </div>
 
+                {/* Message Length and CTA Options */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Message Length</Label>
+                    <Select
+                      value={aiForm.message_length}
+                      onValueChange={(v) => setAiForm({ ...aiForm, message_length: v })}
+                    >
+                      <SelectTrigger data-testid="ai-length-select">
+                        <SelectValue placeholder="Select length" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {messageLengthOptions.map((opt) => (
+                          <SelectItem key={opt.value} value={opt.value}>
+                            <div className="flex flex-col">
+                              <span>{opt.label}</span>
+                              <span className="text-xs text-muted-foreground">{opt.description}</span>
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Call-to-Action</Label>
+                    <Select
+                      value={aiForm.cta_type}
+                      onValueChange={(v) => setAiForm({ ...aiForm, cta_type: v })}
+                    >
+                      <SelectTrigger data-testid="ai-cta-select">
+                        <SelectValue placeholder="Select CTA" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {ctaOptions.map((opt) => (
+                          <SelectItem key={opt.value} value={opt.value}>
+                            <div className="flex flex-col">
+                              <span>{opt.label}</span>
+                              <span className="text-xs text-muted-foreground">{opt.description}</span>
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                {aiForm.cta_type === "custom" && (
+                  <div className="space-y-2">
+                    <Label>Custom CTA Text</Label>
+                    <Input
+                      placeholder="Enter your custom call-to-action text"
+                      value={aiForm.custom_cta}
+                      onChange={(e) => setAiForm({ ...aiForm, custom_cta: e.target.value })}
+                      data-testid="ai-custom-cta-input"
+                    />
+                  </div>
+                )}
+
                 {!aiForm.batch_mode && (
                   <div className="space-y-2">
                     <Label>Additional Context (optional)</Label>
