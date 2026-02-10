@@ -148,17 +148,40 @@ export const BlueprintsPage = () => {
     industry: "",
     target_role: "",
     additional_context: "",
+    message_length: "medium",
+    cta_type: "soft_question",
+    custom_cta: "",
     batch_mode: false,
     batch_channels: ["email"],
     batch_intents: ["awareness"],
     batch_angles: ["cost", "growth", "risk"]
   });
 
+  // Custom options state
+  const [customOptions, setCustomOptions] = useState({
+    intents: [],
+    angles: [],
+    ctas: []
+  });
+
   const canManageBlueprints = user?.role === "owner" || user?.role === "admin";
 
   useEffect(() => {
     fetchBlueprints();
+    fetchCustomOptions();
   }, [channelFilter]);
+
+  const fetchCustomOptions = async () => {
+    try {
+      const response = await authFetch(`${API}/settings/custom-options`);
+      if (response.ok) {
+        const data = await response.json();
+        setCustomOptions(data);
+      }
+    } catch (error) {
+      console.error("Failed to load custom options:", error);
+    }
+  };
 
   const fetchBlueprints = async () => {
     setLoading(true);
