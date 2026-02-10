@@ -30,26 +30,27 @@ NO_PROFILE_USER_EMAIL = f"no_profile_test_{TEST_TIMESTAMP}@example.com"
 NO_PROFILE_USER_PASSWORD = "NoProfileTest123!"
 
 # IT/Technology keywords that should NOT appear in restaurant content
+# Using word boundaries to avoid false positives (e.g., 'hp' in 'touchpoint')
 IT_TECH_KEYWORDS = [
-    # Hardware brands
-    "apple", "macbook", "imac", "iphone", "ipad",
-    "lenovo", "thinkpad", "dell", "latitude", "optiplex",
-    "hp", "elitebook", "probook",
+    # Hardware brands - use full words to avoid false positives
+    " apple ", "macbook", "imac", "iphone", "ipad",
+    "lenovo", "thinkpad", " dell ", "latitude", "optiplex",
+    "elitebook", "probook",  # Removed 'hp' - too many false positives
     # Cloud & IT
-    "microsoft 365", "azure", "intune", "google workspace",
+    "microsoft 365", " azure ", "intune", "google workspace",
     "sharepoint", "onedrive",
     # Networking & Security
-    "cisco", "meraki", "ubiquiti", "unifi", "fortinet", "fortigate",
-    "sonicwall", "firewall", "vpn",
+    " cisco ", "meraki", "ubiquiti", "unifi", "fortinet", "fortigate",
+    "sonicwall", "firewall", " vpn ",
     # IT Management
-    "jamf", "kandji", "connectwise", "ninjarmm", "domotz",
+    " jamf ", "kandji", "connectwise", "ninjarmm", "domotz",
     # Backup & Recovery
     "veeam", "acronis", "datto",
-    # IT Terms
-    "it support", "device management", "endpoint", "server",
-    "infrastructure", "tech stack", "software deployment",
-    "hardware", "network infrastructure", "cybersecurity",
-    "it infrastructure", "managed services", "msp",
+    # IT Terms - use specific phrases to avoid false positives
+    "it support", "device management", " endpoint ", " server ",
+    "tech stack", "software deployment",
+    " hardware ", "network infrastructure", "cybersecurity",
+    "it infrastructure", "managed services", " msp ",
     "it operations", "system administration"
 ]
 
