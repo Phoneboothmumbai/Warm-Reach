@@ -681,6 +681,27 @@ export const ContactsPage = () => {
                 Required columns: first_name, last_name, email<br />
                 Optional: phone, company_name, job_title, city, country
               </p>
+              <Button 
+                variant="link" 
+                className="mt-2 text-primary"
+                onClick={() => {
+                  const csvContent = `first_name,last_name,email,phone,company_name,job_title,city,country
+John,Doe,john.doe@example.com,+919876543210,Acme Corp,IT Manager,Mumbai,India
+Jane,Smith,jane.smith@company.com,+919876543211,Tech Solutions,CTO,Delhi,India
+Rahul,Kumar,rahul.kumar@startup.in,+919876543212,StartUp Inc,Founder,Bangalore,India`;
+                  const blob = new Blob([csvContent], { type: 'text/csv' });
+                  const url = window.URL.createObjectURL(blob);
+                  const a = document.createElement('a');
+                  a.href = url;
+                  a.download = 'contacts_sample.csv';
+                  a.click();
+                  window.URL.revokeObjectURL(url);
+                }}
+                data-testid="download-sample-csv-btn"
+              >
+                <Download className="w-4 h-4 mr-1" />
+                Download Sample CSV
+              </Button>
             </div>
           </div>
         </DialogContent>
