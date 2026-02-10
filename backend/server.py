@@ -2925,6 +2925,134 @@ async def update_business_profile(
     
     return {"message": "Business profile updated"}
 
+# ========================
+# CUSTOM OPTIONS (INTENTS/ANGLES) ROUTES
+# ========================
+
+# Default options that are always available
+DEFAULT_INTENTS = [
+    {"name": "awareness", "description": "Introduce yourself and your company"},
+    {"name": "value", "description": "Highlight specific value proposition"},
+    {"name": "follow_up", "description": "Follow up on previous interaction"},
+    {"name": "nurture", "description": "Build relationship over time"},
+    {"name": "reactivation", "description": "Re-engage dormant contacts"}
+]
+
+DEFAULT_ANGLES = [
+    {"name": "cost", "description": "Focus on cost savings and efficiency"},
+    {"name": "risk", "description": "Highlight risk mitigation and security"},
+    {"name": "growth", "description": "Emphasize growth and expansion opportunities"},
+    {"name": "downtime", "description": "Address operational continuity concerns"},
+    {"name": "compliance", "description": "Focus on regulatory and compliance needs"}
+]
+
+DEFAULT_CTAS = [
+    {"name": "soft_question", "description": "Would you be open to a quick chat?"},
+    {"name": "direct_ask", "description": "Let's schedule a call this week"},
+    {"name": "value_offer", "description": "I'd be happy to share more details"},
+    {"name": "no_cta", "description": "No call-to-action, just information"},
+    {"name": "custom", "description": "Use your own custom CTA"}
+]
+
+@api_router.get("/settings/custom-options")
+async def get_custom_options(current_user: Dict = Depends(get_current_user)):
+    """Get all custom intents and angles for the tenant"""
+    tenant_id = current_user["tenant_id"]
+    
+    # Get custom options from database
+    custom_intents = await db.custom_options.find(
+        {"tenant_id": tenant_id, "option_type": "intent", "is_active": True},
+        {"_id": 0}
+    ).to_list(100)
+    
+    custom_angles = await db.custom_options.find(
+        {"tenant_id": tenant_id, "option_type": "angle", "is_active": True},
+        {"_id": 0}
+    ).to_list(100)
+    
+    custom_ctas = await db.custom_options.find(
+        {"tenant_id": tenant_id, "option_type": "cta", "is_active": True},
+        {"_id": 0}
+    ).to_list(100)
+    
+    # Combine with defaults
+    all_intents = DEFAULT_INTENTS + [{"name": i["name"], "description": i.get("description", ""), "is_custom": True, "id": i["id"]} for i in custom_intents]
+    all_angles = DEFAULT_ANGLES + [{"name": a["name"], "description": a.get("description", ""), "is_custom": True, "id": a["id"]} for a in custom_angles]
+    all_ctas = DEFAULT_CTAS + [{"name": c["name"], "description": c.get("description", ""), "is_custom": True, "id": c["id"]} for c in custom_ctas]
+    
+    return {
+        "intents": all_intents,
+        "angles": all_angles,
+        "ctas": all_ctas,
+        "message_lengths": [
+            {"name": "short", "description": "2-3 lines, very concise"},
+            {"name": "medium", "description": "4-6 lines, balanced"},
+            {"name": "long", "description": "7-10 lines, detailed"}
+        ]
+    }
+
+@api_router.post("/settings/custom-options")
+async def create_custom_option(
+    option: CustomOptionCreate,
+    current_user: Dict = Depends(get_current_user)
+):
+    """Create a new custom intent or angle"""
+    if current_user["role"] not in ["owner", "admin"]:
+        raise HTTPException(status_code=403, detail="Only owner and admin can create custom options")
+    
+    if option.option_type not in ["intent", "angle", "cta"]:
+        raise HTTPException(status_code=400, detail="option_type must be 'intent', 'angle', or 'cta'")
+    
+    tenant_id = current_user["tenant_id"]
+    
+    # Check if option with same name exists
+    existing = await db.custom_options.find_one({
+        "tenant_id": tenant_id,
+        "option_type": option.option_type,
+        "name": option.name.lower().replace(" ", "_")
+    })
+    
+    if existing:
+        raise HTTPException(status_code=400, detail=f"A custom {option.option_type} with this name already exists")
+    
+    custom_option = CustomOption(
+        tenant_id=tenant_id,
+        option_type=option.option_type,
+        name=option.name.lower().replace(" ", "_"),
+        description=option.description
+    )
+    
+    doc = custom_option.model_dump()
+    doc["created_at"] = doc["created_at"].isoformat()
+    
+    await db.custom_options.insert_one(doc)
+    await log_audit(tenant_id, current_user["id"], "create", "custom_option", custom_option.id, {"type": option.option_type})
+    
+    return {"message": f"Custom {option.option_type} created", "id": custom_option.id, "name": custom_option.name}
+
+@api_router.delete("/settings/custom-options/{option_id}")
+async def delete_custom_option(
+    option_id: str,
+    current_user: Dict = Depends(get_current_user)
+):
+    """Delete a custom intent or angle"""
+    if current_user["role"] not in ["owner", "admin"]:
+        raise HTTPException(status_code=403, detail="Only owner and admin can delete custom options")
+    
+    tenant_id = current_user["tenant_id"]
+    
+    result = await db.custom_options.delete_one({
+        "id": option_id,
+        "tenant_id": tenant_id
+    })
+    
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Custom option not found")
+    
+    await log_audit(tenant_id, current_user["id"], "delete", "custom_option", option_id, {})
+    
+    return {"message": "Custom option deleted"}
+
 @api_router.get("/settings/whatsapp", response_model=WhatsAppSettingsResponse)
 async def get_whatsapp_settings(current_user: Dict = Depends(get_current_user)):
     """Get WhatsApp Business API configuration status for the tenant."""
