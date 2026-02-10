@@ -2812,7 +2812,7 @@ async def create_or_update_business_profile(
     current_user: Dict = Depends(get_current_user)
 ):
     """Create or update business profile for the current tenant"""
-    if current_user["role"] not in [UserRole.OWNER, UserRole.ADMIN]:
+    if current_user["role"] not in ["owner", "admin"]:
         raise HTTPException(status_code=403, detail="Only owner and admin can update business profile")
     
     tenant_id = current_user["tenant_id"]
