@@ -569,6 +569,179 @@ export const SettingsPage = () => {
           </Card>
         </TabsContent>
 
+        {/* Blueprints Tab - Custom Intents & Angles */}
+        {isAdmin && (
+          <TabsContent value="blueprints" className="space-y-6">
+            <Card className="card-surface">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Target className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                  Custom Intents
+                </CardTitle>
+                <CardDescription>
+                  Create custom message intents for your blueprints
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="Intent name (e.g., product_launch)"
+                    value={newIntent.name}
+                    onChange={(e) => setNewIntent({ ...newIntent, name: e.target.value })}
+                    className="flex-1"
+                    data-testid="new-intent-name"
+                  />
+                  <Input
+                    placeholder="Description"
+                    value={newIntent.description}
+                    onChange={(e) => setNewIntent({ ...newIntent, description: e.target.value })}
+                    className="flex-1"
+                    data-testid="new-intent-desc"
+                  />
+                  <Button
+                    onClick={() => handleAddCustomOption("intent", newIntent)}
+                    disabled={savingOption || !newIntent.name.trim()}
+                    data-testid="add-intent-btn"
+                  >
+                    <Plus className="w-4 h-4" />
+                  </Button>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {customOptions.intents?.map((intent, idx) => (
+                    <Badge 
+                      key={idx} 
+                      variant={intent.is_custom ? "default" : "secondary"}
+                      className="px-3 py-1.5"
+                    >
+                      {intent.name}
+                      {intent.is_custom && (
+                        <button
+                          onClick={() => handleDeleteCustomOption(intent.id)}
+                          className="ml-2 hover:text-destructive"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      )}
+                    </Badge>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="card-surface">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Compass className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+                  Custom Angles
+                </CardTitle>
+                <CardDescription>
+                  Create custom message angles for your blueprints
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="Angle name (e.g., sustainability)"
+                    value={newAngle.name}
+                    onChange={(e) => setNewAngle({ ...newAngle, name: e.target.value })}
+                    className="flex-1"
+                    data-testid="new-angle-name"
+                  />
+                  <Input
+                    placeholder="Description"
+                    value={newAngle.description}
+                    onChange={(e) => setNewAngle({ ...newAngle, description: e.target.value })}
+                    className="flex-1"
+                    data-testid="new-angle-desc"
+                  />
+                  <Button
+                    onClick={() => handleAddCustomOption("angle", newAngle)}
+                    disabled={savingOption || !newAngle.name.trim()}
+                    data-testid="add-angle-btn"
+                  >
+                    <Plus className="w-4 h-4" />
+                  </Button>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {customOptions.angles?.map((angle, idx) => (
+                    <Badge 
+                      key={idx} 
+                      variant={angle.is_custom ? "default" : "secondary"}
+                      className="px-3 py-1.5"
+                    >
+                      {angle.name}
+                      {angle.is_custom && (
+                        <button
+                          onClick={() => handleDeleteCustomOption(angle.id)}
+                          className="ml-2 hover:text-destructive"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      )}
+                    </Badge>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="card-surface">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <MessageCircle className="w-5 h-5 text-green-600 dark:text-green-400" />
+                  Custom CTAs
+                </CardTitle>
+                <CardDescription>
+                  Create custom call-to-action phrases for your messages
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="CTA name (e.g., schedule_demo)"
+                    value={newCta.name}
+                    onChange={(e) => setNewCta({ ...newCta, name: e.target.value })}
+                    className="flex-1"
+                    data-testid="new-cta-name"
+                  />
+                  <Input
+                    placeholder="CTA text (e.g., Would you like to see a demo?)"
+                    value={newCta.description}
+                    onChange={(e) => setNewCta({ ...newCta, description: e.target.value })}
+                    className="flex-1"
+                    data-testid="new-cta-desc"
+                  />
+                  <Button
+                    onClick={() => handleAddCustomOption("cta", newCta)}
+                    disabled={savingOption || !newCta.name.trim()}
+                    data-testid="add-cta-btn"
+                  >
+                    <Plus className="w-4 h-4" />
+                  </Button>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {customOptions.ctas?.map((cta, idx) => (
+                    <Badge 
+                      key={idx} 
+                      variant={cta.is_custom ? "default" : "secondary"}
+                      className="px-3 py-1.5"
+                    >
+                      {cta.name}
+                      {cta.is_custom && (
+                        <button
+                          onClick={() => handleDeleteCustomOption(cta.id)}
+                          className="ml-2 hover:text-destructive"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      )}
+                    </Badge>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        )}
+
         {/* Integrations Tab */}
         {isAdmin && (
           <TabsContent value="integrations" className="space-y-6">
