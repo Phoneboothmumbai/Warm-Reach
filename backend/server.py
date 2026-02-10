@@ -282,7 +282,8 @@ OUTPUT: Generate ONLY the message text. No subject lines, no labels, no explanat
 async def generate_ai_blueprint(channel: str, intent: str, angle: str, tone: str, 
                                  industry: str = None, target_role: str = None,
                                  additional_context: str = None,
-                                 existing_blueprints: List[str] = None) -> Dict:
+                                 existing_blueprints: List[str] = None,
+                                 tenant_id: str = None) -> Dict:
     """Generate a unique blueprint structure using AI"""
     try:
         from emergentintegrations.llm.chat import LlmChat, UserMessage
@@ -312,8 +313,42 @@ async def generate_ai_blueprint(channel: str, intent: str, angle: str, tone: str
 - Thought-leadership style"""
         }
         
-        # Business context for IT Solutions & NeoStore
-        business_context = """
+        # Fetch business profile for tenant (dynamic)
+        business_context = ""
+        if tenant_id:
+            profile = await db.business_profiles.find_one({"tenant_id": tenant_id}, {"_id": 0})
+            if profile and profile.get("company_name"):
+                products = profile.get("products_services", [])
+                products_text = ", ".join([p.get('name', '') for p in products]) if products else "Various solutions"
+                
+                clients = profile.get("key_clients", [])
+                clients_text = ", ".join(clients) if clients else "Various clients"
+                
+                business_context = f"""
+ABOUT OUR COMPANY (Use this context for all blueprints):
+{profile.get('company_name', 'Our Company')} - {profile.get('tagline', '')}
+{profile.get('about', '')}
+
+OUR PRODUCTS & SERVICES: {products_text}
+
+KEY CLIENTS: {clients_text}
+
+VALUE PROPOSITION: {profile.get('value_proposition', '')}
+
+TARGET AUDIENCE: {profile.get('target_audience', '')}
+
+COMMUNICATION STYLE: {profile.get('tone_style', 'professional')}
+
+STRICT RULES:
+- NEVER mention pricing or costs
+- NEVER mention competitor names
+- Focus on business value
+- Reference relevant solutions based on context
+"""
+        
+        # Fallback to default context if no profile
+        if not business_context:
+            business_context = """
 ABOUT OUR COMPANY (Use this context for all blueprints):
 We are an end-to-end IT solutions company. Our services include:
 - Proactive IT support and maintenance
