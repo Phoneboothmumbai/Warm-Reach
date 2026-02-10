@@ -283,33 +283,56 @@ async def generate_ai_blueprint(channel: str, intent: str, angle: str, tone: str
                                  industry: str = None, target_role: str = None,
                                  additional_context: str = None,
                                  existing_blueprints: List[str] = None,
-                                 tenant_id: str = None) -> Dict:
+                                 tenant_id: str = None,
+                                 message_length: str = "medium",
+                                 cta_type: str = "soft_question",
+                                 custom_cta: str = None) -> Dict:
     """Generate a unique blueprint structure using AI"""
     try:
         from emergentintegrations.llm.chat import LlmChat, UserMessage
         import random
         import time
         
+        # Message length guidance
+        length_guidance = {
+            "short": "Keep the message very concise: 2-3 lines maximum. Be brief and direct.",
+            "medium": "Keep the message balanced: 4-6 lines. Provide enough context without being verbose.",
+            "long": "The message can be more detailed: 7-10 lines. Include more context and explanation."
+        }
+        
+        # CTA guidance
+        cta_guidance = {
+            "soft_question": "End with a soft, non-pushy question like 'Would you be open to a quick chat?' or 'Is this something worth exploring?'",
+            "direct_ask": "End with a direct but professional ask like 'Let's schedule a 15-minute call this week' or 'Can we set up time to discuss?'",
+            "value_offer": "End by offering value like 'I'd be happy to share a quick overview' or 'Want me to send over some relevant examples?'",
+            "no_cta": "Do NOT include any call-to-action. Just share the insight or information and let it stand on its own.",
+            "custom": f"End with this specific CTA: {custom_cta}" if custom_cta else "End with a soft, non-pushy question."
+        }
+        
         # Channel-specific guidance
         channel_guidance = {
-            "email": """
-- Plain text only, 4-6 lines maximum
+            "email": f"""
+- Plain text only
+- {length_guidance.get(message_length, length_guidance['medium'])}
 - No emojis allowed
 - No links in first touch
 - One idea per email
-- Clear, soft CTA at the end
+- {cta_guidance.get(cta_type, cta_guidance['soft_question'])}
 - Structure: Hook → Observation → Insight → CTA""",
-            "whatsapp": """
-- Maximum 3 short lines
+            "whatsapp": f"""
+- {length_guidance.get(message_length, 'Maximum 3 short lines')}
 - One question maximum
 - Conversational, friendly tone
 - Must end with opt-out line: "Reply STOP to opt out"
+- {cta_guidance.get(cta_type, cta_guidance['soft_question'])}
 - No formal greetings""",
-            "linkedin": """
+            "linkedin": f"""
 - No links in 70% of posts
+- {length_guidance.get(message_length, length_guidance['medium'])}
 - Use numbers over adjectives
 - One thought per post
 - Line breaks for readability
+- {cta_guidance.get(cta_type, cta_guidance['soft_question'])}
 - Thought-leadership style"""
         }
         
