@@ -388,19 +388,20 @@ Use these placeholders:
 
 STRICT RULES:
 1. Use the CREATIVE DIRECTION as your opening approach
-2. Focus on IT services: support, security, devices, infrastructure
+2. Focus ONLY on the company, products, and services described in ABOUT OUR COMPANY section
 3. NEVER mention pricing or costs
 4. NEVER mention competitor names
-5. Position as a trusted IT partner, not a vendor
+5. Position as a trusted partner, not a vendor
 6. Keep it natural and human-sounding
 7. Follow channel constraints strictly
+8. Do NOT reference any industry or products not mentioned in the business profile
 
 Return ONLY the message template text."""
 
         llm_chat = LlmChat(
             api_key=EMERGENT_LLM_KEY,
             session_id=f"blueprint_gen_{int(time.time())}_{variation_seed}",
-            system_message="You are a creative B2B copywriter. Each blueprint you create is unique with different hooks, structures, and phrasing. Never repeat patterns."
+            system_message="You are a creative B2B copywriter. Generate content ONLY based on the company profile provided. Each blueprint is unique with different hooks, structures, and phrasing. Never repeat patterns."
         )
         
         llm_chat = llm_chat.with_model("openai", "gpt-5.2")
