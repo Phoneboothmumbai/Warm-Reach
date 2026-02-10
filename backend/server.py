@@ -2026,7 +2026,7 @@ async def generate_message(
     all_previous = list(set(previous_messages + recent_contents))[:10]
     
     # Generate unique message using AI
-    content = await generate_ai_message(contact, blueprint, all_previous)
+    content = await generate_ai_message(contact, blueprint, all_previous, current_user["tenant_id"])
     
     # Create content hash for deduplication
     content_hash = hashlib.md5(content.encode()).hexdigest()
@@ -2040,7 +2040,7 @@ async def generate_message(
     regen_attempts = 0
     while duplicate and regen_attempts < 3:
         regen_attempts += 1
-        content = await generate_ai_message(contact, blueprint, all_previous + [content])
+        content = await generate_ai_message(contact, blueprint, all_previous + [content], current_user["tenant_id"])
         content_hash = hashlib.md5(content.encode()).hexdigest()
         duplicate = await db.messages.find_one({
             "tenant_id": current_user["tenant_id"],
