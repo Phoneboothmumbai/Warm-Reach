@@ -866,11 +866,14 @@ class BlueprintBase(BaseModel):
     name: str
     description: Optional[str] = None
     channel: Channel
-    intent: Intent
-    angle: Angle
+    intent: str  # Changed to str to support custom intents
+    angle: str   # Changed to str to support custom angles
     tone: Tone
     structure: str
     cooldown_days: int = 7
+    message_length: MessageLength = MessageLength.MEDIUM
+    cta_type: CTAType = CTAType.SOFT_QUESTION
+    custom_cta: Optional[str] = None  # For custom CTA text
 
 class BlueprintCreate(BlueprintBase):
     pass
