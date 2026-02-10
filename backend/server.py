@@ -2697,6 +2697,102 @@ async def update_tenant_settings(
     
     return {"message": "Settings updated"}
 
+# ========================
+# BUSINESS PROFILE ROUTES
+# ========================
+
+@api_router.get("/business-profile")
+async def get_business_profile(current_user: Dict = Depends(get_current_user)):
+    """Get business profile for the current tenant"""
+    profile = await db.business_profiles.find_one(
+        {"tenant_id": current_user["tenant_id"]},
+        {"_id": 0}
+    )
+    if not profile:
+        # Return empty profile with defaults
+        return {
+            "id": None,
+            "tenant_id": current_user["tenant_id"],
+            "company_name": "",
+            "industry": "",
+            "website": "",
+            "tagline": "",
+            "about": "",
+            "products_services": [],
+            "key_clients": [],
+            "value_proposition": "",
+            "target_audience": "",
+            "tone_style": "professional"
+        }
+    return profile
+
+@api_router.post("/business-profile")
+async def create_or_update_business_profile(
+    profile_data: BusinessProfileCreate,
+    current_user: Dict = Depends(get_current_user)
+):
+    """Create or update business profile for the current tenant"""
+    if current_user["role"] not in [UserRole.OWNER, UserRole.ADMIN]:
+        raise HTTPException(status_code=403, detail="Only owner and admin can update business profile")
+    
+    tenant_id = current_user["tenant_id"]
+    
+    # Check if profile exists
+    existing = await db.business_profiles.find_one({"tenant_id": tenant_id})
+    
+    now = datetime.now(timezone.utc)
+    
+    if existing:
+        # Update existing profile
+        update_data = profile_data.model_dump()
+        update_data["updated_at"] = now
+        
+        await db.business_profiles.update_one(
+            {"tenant_id": tenant_id},
+            {"$set": update_data}
+        )
+        await log_audit(tenant_id, current_user["id"], "update", "business_profile", existing["id"], update_data)
+        return {"message": "Business profile updated", "id": existing["id"]}
+    else:
+        # Create new profile
+        profile = BusinessProfile(
+            tenant_id=tenant_id,
+            **profile_data.model_dump()
+        )
+        profile_dict = profile.model_dump()
+        profile_dict["created_at"] = now
+        profile_dict["updated_at"] = now
+        
+        await db.business_profiles.insert_one(profile_dict)
+        await log_audit(tenant_id, current_user["id"], "create", "business_profile", profile.id, {})
+        return {"message": "Business profile created", "id": profile.id}
+
+@api_router.put("/business-profile")
+async def update_business_profile(
+    profile_data: BusinessProfileUpdate,
+    current_user: Dict = Depends(get_current_user)
+):
+    """Partially update business profile"""
+    if current_user["role"] not in [UserRole.OWNER, UserRole.ADMIN]:
+        raise HTTPException(status_code=403, detail="Only owner and admin can update business profile")
+    
+    tenant_id = current_user["tenant_id"]
+    existing = await db.business_profiles.find_one({"tenant_id": tenant_id})
+    
+    if not existing:
+        raise HTTPException(status_code=404, detail="Business profile not found. Create one first.")
+    
+    update_data = {k: v for k, v in profile_data.model_dump().items() if v is not None}
+    if update_data:
+        update_data["updated_at"] = datetime.now(timezone.utc)
+        await db.business_profiles.update_one(
+            {"tenant_id": tenant_id},
+            {"$set": update_data}
+        )
+        await log_audit(tenant_id, current_user["id"], "update", "business_profile", existing["id"], update_data)
+    
+    return {"message": "Business profile updated"}
+
 @api_router.get("/settings/whatsapp", response_model=WhatsAppSettingsResponse)
 async def get_whatsapp_settings(current_user: Dict = Depends(get_current_user)):
     """Get WhatsApp Business API configuration status for the tenant."""
