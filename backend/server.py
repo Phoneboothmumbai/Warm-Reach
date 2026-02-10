@@ -1708,7 +1708,8 @@ async def generate_ai_blueprint_endpoint(
         industry=request.industry,
         target_role=request.target_role,
         additional_context=request.additional_context,
-        existing_blueprints=existing_structures
+        existing_blueprints=existing_structures,
+        tenant_id=current_user["tenant_id"]
     )
     
     # Create blueprint (not approved by default)
