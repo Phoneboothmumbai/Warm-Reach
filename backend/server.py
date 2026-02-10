@@ -671,6 +671,45 @@ class Tenant(TenantBase):
         "linkedin_weekly": 3
     })
 
+# Business Profile Models
+class ProductService(BaseModel):
+    name: str
+    description: Optional[str] = None
+
+class BusinessProfileBase(BaseModel):
+    company_name: str
+    industry: Optional[str] = None
+    website: Optional[str] = None
+    tagline: Optional[str] = None
+    about: Optional[str] = None
+    products_services: List[ProductService] = Field(default_factory=list)
+    key_clients: List[str] = Field(default_factory=list)
+    value_proposition: Optional[str] = None
+    target_audience: Optional[str] = None
+    tone_style: str = "professional"  # professional, friendly, casual, formal
+
+class BusinessProfileCreate(BusinessProfileBase):
+    pass
+
+class BusinessProfileUpdate(BaseModel):
+    company_name: Optional[str] = None
+    industry: Optional[str] = None
+    website: Optional[str] = None
+    tagline: Optional[str] = None
+    about: Optional[str] = None
+    products_services: Optional[List[ProductService]] = None
+    key_clients: Optional[List[str]] = None
+    value_proposition: Optional[str] = None
+    target_audience: Optional[str] = None
+    tone_style: Optional[str] = None
+
+class BusinessProfile(BusinessProfileBase):
+    model_config = ConfigDict(extra="ignore")
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    tenant_id: str
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
 class ContextFlags(BaseModel):
     has_open_support_ticket: bool = False
     recent_inbound_email: bool = False
