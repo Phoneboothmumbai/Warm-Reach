@@ -42,6 +42,7 @@ import {
   AlertTitle,
 } from "@/components/ui/alert";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 
 const approvalModeConfig = {
   manual: {
