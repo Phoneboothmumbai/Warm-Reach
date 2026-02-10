@@ -832,7 +832,7 @@ class BlueprintBase(BaseModel):
     structure: str
     cooldown_days: int = 7
     message_length: MessageLength = MessageLength.MEDIUM
-    cta_type: CTAType = CTAType.SOFT_QUESTION
+    cta_type: str = "soft_question"  # Changed to str to support custom CTAs
     custom_cta: Optional[str] = None  # For custom CTA text
 
 class BlueprintCreate(BlueprintBase):
@@ -1010,7 +1010,7 @@ class AIBlueprintRequest(BaseModel):
     target_role: Optional[str] = None
     additional_context: Optional[str] = None
     message_length: MessageLength = MessageLength.MEDIUM
-    cta_type: CTAType = CTAType.SOFT_QUESTION
+    cta_type: str = "soft_question"  # Changed to str to support custom CTAs
     custom_cta: Optional[str] = None
 
 class AIBlueprintResponse(BaseModel):
@@ -1163,7 +1163,7 @@ class BatchAIBlueprintRequest(BaseModel):
     industry: Optional[str] = None
     target_role: Optional[str] = None
     message_length: MessageLength = MessageLength.MEDIUM
-    cta_type: CTAType = CTAType.SOFT_QUESTION
+    cta_type: str = "soft_question"  # Changed to str to support custom CTAs
     custom_cta: Optional[str] = None
 
 # ========================
