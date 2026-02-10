@@ -55,15 +55,58 @@ logger = logging.getLogger(__name__)
 # AI SERVICE
 # ========================
 
-async def generate_ai_message(contact: Dict, blueprint: Dict, previous_messages: List[str] = None) -> str:
+async def generate_ai_message(contact: Dict, blueprint: Dict, previous_messages: List[str] = None, tenant_id: str = None) -> str:
     """Generate a unique message using OpenAI GPT-5.2 via Emergent"""
     try:
         from emergentintegrations.llm.chat import LlmChat, UserMessage
         import random
         import time
         
-        # Business context - IT Solutions & NeoStore
-        business_context = """
+        # Fetch business profile for tenant (dynamic)
+        business_context = ""
+        if tenant_id:
+            profile = await db.business_profiles.find_one({"tenant_id": tenant_id}, {"_id": 0})
+            if profile and profile.get("company_name"):
+                # Build dynamic business context from profile
+                products = profile.get("products_services", [])
+                products_text = "\n".join([f"- {p.get('name', '')}: {p.get('description', '')}" for p in products]) if products else "- Various IT solutions and services"
+                
+                clients = profile.get("key_clients", [])
+                clients_text = ", ".join(clients) if clients else "Various enterprise clients"
+                
+                business_context = f"""
+ABOUT OUR COMPANY:
+{profile.get('company_name', 'Our Company')} - {profile.get('tagline', '')}
+Industry: {profile.get('industry', 'Technology')}
+Website: {profile.get('website', '')}
+
+{profile.get('about', '')}
+
+OUR PRODUCTS & SERVICES:
+{products_text}
+
+KEY CLIENTS WE WORK WITH:
+{clients_text}
+
+VALUE PROPOSITION:
+{profile.get('value_proposition', '')}
+
+TARGET AUDIENCE:
+{profile.get('target_audience', '')}
+
+COMMUNICATION STYLE: {profile.get('tone_style', 'professional')}
+
+STRICT RULES:
+- NEVER mention pricing, costs, or specific numbers
+- NEVER mention competitor names
+- Focus on business value and solving problems
+- Position as a trusted partner, not a vendor
+- Tailor message based on contact's industry and needs
+"""
+        
+        # Fallback to default context if no profile exists
+        if not business_context:
+            business_context = """
 ABOUT OUR COMPANY:
 We are an end-to-end IT solutions company focused on keeping businesses running smoothly, securely, and without disruption. Our core services include:
 - Proactive IT support and maintenance
