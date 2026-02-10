@@ -16,7 +16,8 @@ import {
   Bell,
   Moon,
   Sun,
-  MessageCircle
+  MessageCircle,
+  Building2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -34,6 +35,7 @@ import { cn } from "@/lib/utils";
 
 const navigation = [
   { name: "Dashboard", href: "/app/dashboard", icon: LayoutDashboard },
+  { name: "Business Profile", href: "/app/business-profile", icon: Building2 },
   { name: "Contacts", href: "/app/contacts", icon: Users },
   { name: "Blueprints", href: "/app/blueprints", icon: FileText },
   { name: "Messages", href: "/app/messages", icon: MessageSquare },
