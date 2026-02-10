@@ -255,7 +255,7 @@ async def generate_ai_blueprint(channel: str, intent: str, angle: str, tone: str
             "long": "The message can be more detailed: 7-10 lines. Include more context and explanation."
         }
         
-        # CTA guidance
+        # CTA guidance - support custom CTAs by looking up description
         cta_guidance = {
             "soft_question": "End with a soft, non-pushy question like 'Would you be open to a quick chat?' or 'Is this something worth exploring?'",
             "direct_ask": "End with a direct but professional ask like 'Let's schedule a 15-minute call this week' or 'Can we set up time to discuss?'",
@@ -263,6 +263,23 @@ async def generate_ai_blueprint(channel: str, intent: str, angle: str, tone: str
             "no_cta": "Do NOT include any call-to-action. Just share the insight or information and let it stand on its own.",
             "custom": f"End with this specific CTA: {custom_cta}" if custom_cta else "End with a soft, non-pushy question."
         }
+        
+        # Handle custom CTA names - look up from database
+        cta_instruction = cta_guidance.get(cta_type)
+        if not cta_instruction and tenant_id:
+            # Try to find custom CTA description from database
+            custom_cta_doc = await db.custom_options.find_one({
+                "tenant_id": tenant_id,
+                "option_type": "cta",
+                "name": cta_type,
+                "is_active": True
+            })
+            if custom_cta_doc:
+                cta_instruction = f"End with this specific CTA: {custom_cta_doc.get('description', cta_type)}"
+            else:
+                cta_instruction = cta_guidance['soft_question']
+        elif not cta_instruction:
+            cta_instruction = cta_guidance['soft_question']
         
         # Channel-specific guidance
         channel_guidance = {
@@ -272,14 +289,14 @@ async def generate_ai_blueprint(channel: str, intent: str, angle: str, tone: str
 - No emojis allowed
 - No links in first touch
 - One idea per email
-- {cta_guidance.get(cta_type, cta_guidance['soft_question'])}
+- {cta_instruction}
 - Structure: Hook → Observation → Insight → CTA""",
             "whatsapp": f"""
 - {length_guidance.get(message_length, 'Maximum 3 short lines')}
 - One question maximum
 - Conversational, friendly tone
 - Must end with opt-out line: "Reply STOP to opt out"
-- {cta_guidance.get(cta_type, cta_guidance['soft_question'])}
+- {cta_instruction}
 - No formal greetings""",
             "linkedin": f"""
 - No links in 70% of posts
@@ -287,7 +304,7 @@ async def generate_ai_blueprint(channel: str, intent: str, angle: str, tone: str
 - Use numbers over adjectives
 - One thought per post
 - Line breaks for readability
-- {cta_guidance.get(cta_type, cta_guidance['soft_question'])}
+- {cta_instruction}
 - Thought-leadership style"""
         }
         
