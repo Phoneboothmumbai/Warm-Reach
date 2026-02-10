@@ -2181,7 +2181,7 @@ async def generate_batch_messages(
                 all_previous = list(set(previous_messages + recent_contents))[:10]
                 
                 # Generate unique message using AI
-                content = await generate_ai_message(contact, blueprint, all_previous)
+                content = await generate_ai_message(contact, blueprint, all_previous, tenant_id)
                 
                 # Create content hash
                 content_hash = hashlib.md5(content.encode()).hexdigest()
@@ -2197,7 +2197,7 @@ async def generate_batch_messages(
                 while duplicate and regen_attempts < 3:
                     regen_attempts += 1
                     logger.info(f"Regenerating message (attempt {regen_attempts}) due to duplicate")
-                    content = await generate_ai_message(contact, blueprint, all_previous + [content])
+                    content = await generate_ai_message(contact, blueprint, all_previous + [content], tenant_id)
                     content_hash = hashlib.md5(content.encode()).hexdigest()
                     duplicate = await db.messages.find_one({
                         "tenant_id": tenant_id,
