@@ -313,36 +313,39 @@ STRICT RULES:
             raise Exception("Business profile not configured. Please set up your Business Profile in the app before generating blueprints.")
         
         intent_desc = {
-            "awareness": "Introduce our IT services and create initial awareness about proactive IT support",
-            "conversation": "Start a dialogue about their IT challenges and how we can help",
-            "follow_up": "Continue from previous interaction about IT services"
+            "awareness": "Introduce the company and create initial awareness",
+            "value": "Highlight specific value proposition and benefits",
+            "conversation": "Start a dialogue about their challenges",
+            "follow_up": "Continue from previous interaction",
+            "nurture": "Build relationship over time with value-adding content",
+            "reactivation": "Re-engage dormant contacts with fresh perspective"
         }
         
         angle_desc = {
-            "cost": "Focus on reducing hidden IT costs and operational inefficiencies",
-            "risk": "Highlight IT security, data protection, and risk mitigation",
-            "downtime": "Address system reliability, uptime, and business continuity",
-            "growth": "Emphasize scalable IT infrastructure for growing businesses",
-            "compliance": "Focus on IT compliance, security standards, and best practices"
+            "cost": "Focus on cost savings and operational efficiency",
+            "risk": "Highlight risk mitigation and security",
+            "downtime": "Address reliability and business continuity",
+            "growth": "Emphasize scalability and growth opportunities",
+            "compliance": "Focus on compliance and best practices"
         }
         
         tone_desc = {
-            "calm_authority": "Professional, confident IT expertise without being pushy",
-            "observational": "Insightful observations about IT challenges and solutions",
-            "direct": "Straightforward, clear communication about IT needs"
+            "calm_authority": "Professional, confident expertise without being pushy",
+            "observational": "Insightful observations about challenges and solutions",
+            "direct": "Straightforward, clear communication"
         }
         
         # Variation seed and creative directions
         variation_seed = random.randint(1000, 9999)
         
         creative_hooks = [
-            "Start with a question about their current IT support experience",
-            "Open with a common IT challenge for growing businesses",
-            "Begin by referencing device management or security concerns",
-            "Start with an observation about reactive vs proactive IT",
-            "Open with a question about their backup and recovery approach",
-            "Begin by acknowledging the IT burden on business operations",
-            "Start with curiosity about how they handle IT issues currently"
+            "Start with a question about their current experience",
+            "Open with a common challenge for their industry",
+            "Begin by referencing a specific pain point",
+            "Start with an observation about a trend",
+            "Open with curiosity about how they handle things currently",
+            "Begin by acknowledging a common struggle",
+            "Start with a thought-provoking question"
         ]
         selected_hook = random.choice(creative_hooks)
         
@@ -360,16 +363,16 @@ Your new blueprint MUST:
 - NOT start with similar words or patterns
 """
         
-        prompt = f"""Generate a unique B2B outreach message blueprint for an IT solutions company. Variation #{variation_seed}
+        prompt = f"""Generate a unique B2B outreach message blueprint for the company described below. Variation #{variation_seed}
 
 {business_context}
 
 CHANNEL: {channel}
 {channel_guidance.get(channel, channel_guidance['email'])}
 
-INTENT: {intent} - {intent_desc.get(intent, '')}
-ANGLE: {angle} - {angle_desc.get(angle, '')}
-TONE: {tone} - {tone_desc.get(tone, '')}
+INTENT: {intent} - {intent_desc.get(intent, intent)}
+ANGLE: {angle} - {angle_desc.get(angle, angle)}
+TONE: {tone} - {tone_desc.get(tone, tone)}
 {f'TARGET INDUSTRY: {industry}' if industry else ''}
 {f'TARGET ROLE: {target_role}' if target_role else ''}
 {f'ADDITIONAL CONTEXT: {additional_context}' if additional_context else ''}
