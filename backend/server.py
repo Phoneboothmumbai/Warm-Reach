@@ -1197,11 +1197,14 @@ class WAWebInboxResponse(BaseModel):
 
 class BatchAIBlueprintRequest(BaseModel):
     channels: List[Channel] = [Channel.EMAIL]
-    intents: List[Intent] = [Intent.AWARENESS]
-    angles: List[Angle] = [Angle.COST, Angle.GROWTH, Angle.RISK]
+    intents: List[str] = ["awareness"]  # Changed to str to support custom intents
+    angles: List[str] = ["cost", "growth", "risk"]  # Changed to str to support custom angles
     tone: Tone = Tone.CALM_AUTHORITY
     industry: Optional[str] = None
     target_role: Optional[str] = None
+    message_length: MessageLength = MessageLength.MEDIUM
+    cta_type: CTAType = CTAType.SOFT_QUESTION
+    custom_cta: Optional[str] = None
 
 # ========================
 # HELPER FUNCTIONS
