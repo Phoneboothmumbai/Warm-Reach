@@ -1,104 +1,78 @@
 <analysis>**original_problem_statement:**
-The user wants to build a context-aware, controlled outreach SaaS called Warm Outreach Engine to help B2B service companies create demand via Email and WhatsApp. The user has now clarified the core automation loop:
+The user wants to build a context-aware, controlled outreach SaaS called Warm Outreach Engine to help B2B service companies create demand via Email and WhatsApp.
 
 **PRODUCT REQUIREMENTS:**
-1.  **AI Content Generation:** The app must use the user's specific business context (IT solutions for brands like Apple, Dell, Google Workspace) to generate relevant messages.
+1.  **AI Content Generation:** The app must use the user's specific business context to generate relevant messages. All hardcoded content must be removed, and generation should rely solely on a per-tenant Business Profile.
 2.  **Core Automation Loop (Set & Forget):**
     *   Auto-generate and send messages to **10 random contacts via WhatsApp** and **10 random contacts via Email** per day.
     *   Messages must be sent only during **business hours (9 AM - 6 PM)**.
     *   A contact should receive a **maximum of 2 messages per month**.
     *   The system should run daily without manual intervention.
-3.  **Approval Workflow:** A semi-automatic flow is required where the user approves generated messages once, after which they are added to the automated daily sending queue.
-4.  **Super Admin Portal:** A comprehensive backend portal is required for managing the SaaS. This includes:
-    *   Dashboard for usage metrics (tenants, users, messages).
-    *   Management of tenants, users (including password resets), and subscriptions.
-    *   A dynamic pricing plan manager that populates the landing page.
-    *   A simple CMS to create and edit static pages (e.g., About Us, Privacy Policy) linked in the footer.
-5.  **SaaS Landing Page:** A public-facing marketing page explaining the product's features, benefits, and pricing.
+3.  **Customizable AI Parameters:** The user must be able to define their own master lists for Intents, Angles, and CTAs from a settings page. The AI blueprint generator should include options for message length (Short, Medium, Long) and CTA selection.
+4.  **Approval Workflow:** A semi-automatic flow is required where the user approves generated messages once, after which they are added to the automated daily sending queue.
+5.  **Super Admin Portal:** A comprehensive backend portal is required for managing the SaaS, including a dashboard, management of tenants/users/subscriptions, a dynamic pricing plan manager, and a simple CMS.
+6.  **SaaS Landing Page:** A public-facing marketing page.
 
 **User's preferred language**: English
 
 **what currently exists?**
-A full-stack application deployed on a user-managed Vultr server.
-- **Backend:** A monolithic FastAPI server () with user auth, CRUD for contacts/blueprints, AI message generation, and a background scheduler () using APScheduler.
-- **Frontend:** A React application with pages for dashboard, contacts, blueprints, messages, settings, and WhatsApp. A public landing page and a super admin area have been created.
-- **Microservice:** A Node.js service () handles WhatsApp Web (Baileys) integration.
-- **Database:** MongoDB.
+A full-stack application with a React frontend, a monolithic FastAPI backend (), and a MongoDB database, deployed on a user-managed Vultr server.
 - **Key Features Implemented:**
-    - User registration/login with JWT.
-    - AI-powered message/blueprint generation incorporating the user's full business context.
-    - Message scheduling with randomized 30-60 minute gaps.
-    - A SaaS landing page with a features section and dynamic pricing.
-    - A Super Admin portal with initial functionality for managing plans, tenants, and users.
-    - A CMS for creating/editing pages like About Us and Privacy Policy.
+    - User registration/login (JWT) and Super Admin role.
+    - A Super Admin portal with management for tenants, users, pricing plans, and a CMS for static pages.
+    - A SaaS landing page with dynamic pricing.
+    - A Business Profile section for each tenant to provide specific context for AI generation.
+    - A Settings page where tenants can manage custom Intents, Angles, and CTAs.
+    - The blueprint generator now includes options for message length and CTA, with dropdowns populated from the tenant's custom masters.
+    - Message generation logic has been updated to queue future messages instead of blocking generation due to cooldowns.
+    - A Node.js microservice () for WhatsApp integration.
+    - A background scheduler () using APScheduler exists but does not yet implement the full automation loop.
 
 **Last working item**:
-- Last item agent was working: Building the Super Admin portal. The agent had just implemented the backend and frontend for a simple CMS to manage dynamic pages (e.g., About Us, Privacy) and was about to set the user's requested admin credentials.
+- Last item agent was working: The agent was debugging why AI-generated messages for a new tenant (Eat8) still contained old, hardcoded IT-related context, despite the Business Profile feature being implemented. The root cause was identified as residual hardcoded fallback text in the AI generation prompts within . The agent was in the middle of removing this text.
 - Status: IN PROGRESS
 - Agent Testing Done: N
-- Which testing method agent to use? both
+- Which testing method agent to use? backend testing agent
 - User Testing Done: N
 
 **All Pending/In progress Issue list**:
-- **Issue 1: Set Super Admin Credentials (P0)**
-- **Issue 2: Implement Full Automation System (P1)**
-- **Issue 3: Refactor Monolithic Backend (P2)**
+-   **Issue 1: AI Content Mixing (P0)**
+-   **Issue 2: Implement Full Automation System (P1)**
+-   **Issue 3: Refactor Monolithic Backend (P2)**
 
 **Issues Detail:**
-- **Issue 1: Set Super Admin Credentials**
-    - **Attempted fixes:** None. The user made the request just before the session ended.
+- **Issue 1: AI Content Mixing**
+    - **Attempted fixes:** The agent previously removed some hardcoded IT context but missed fallback prompts in  and . The last session ended mid-fix while attempting to remove the remaining hardcoded text.
     - **Next debug checklist:**
-        1.  Guide the user to run a Current Mongosh Log ID:	698a1dffb07d753924284d0b
-Connecting to:		mongodb://127.0.0.1:27017/?directConnection=true&serverSelectionTimeoutMS=2000&appName=mongosh+2.6.0
-Using MongoDB:		7.0.29
-Using Mongosh:		2.6.0
-
-For mongosh info see: https://www.mongodb.com/docs/mongodb-shell/
-
-
-To help improve our products, anonymous usage data is collected and sent to MongoDB periodically (https://www.mongodb.com/legal/privacy-policy).
-You can opt-out by running the disableTelemetry() command.
-
-------
-   The server generated these startup warnings when booting
-   2026-02-09T17:48:41.692+00:00: Using the XFS filesystem is strongly recommended with the WiredTiger storage engine. See http://dochub.mongodb.org/core/prodnotes-filesystem
-   2026-02-09T17:48:44.085+00:00: Access control is not enabled for the database. Read and write access to data and configuration is unrestricted
-   2026-02-09T17:48:44.085+00:00: You are running this process as the root user, which is not recommended
-   2026-02-09T17:48:44.085+00:00: Soft rlimits for open file descriptors too low
-------
-
-test>  command on their Vultr server to create or update the user .
-        2.  The command should set the password to  (hashed) and the  flag to .
-        3.  Alternatively, create a one-time script or endpoint to perform this action securely.
-    - **Why fix this issue and what will be achieved with the fix?** To fulfill a direct user request and grant them access to the newly created Super Admin portal.
-    - **Status:** NOT STARTED
-    - **Is recurring issue?** N
+        1.  Resume the  operation on .
+        2.  Find and remove ALL remaining hardcoded strings related to IT, technology, specific brands (Apple, Dell), etc., from the AI prompts in  and .
+        3.  Ensure the fallback prompt is generic (e.g., Please fill out your business profile to generate content).
+        4.  Test by generating content for a tenant *with* a profile (e.g., Eat8) and one *without* to confirm complete data isolation.
+    - **Why fix this issue and what will be achieved with the fix?** To ensure tenant data is strictly isolated, which is a critical requirement for a multi-tenant SaaS application. This will permanently solve the content-mixing problem.
+    - **Status:** IN PROGRESS
+    - **Is recurring issue?** Y
     - **Should Test frontend/backend/both after fix?** backend
     - **Blocked on other issue:** None
 
 - **Issue 2: Implement Full Automation System**
-    - **Attempted fixes:** A basic scheduler exists that sends individual messages.
+    - **Attempted fixes:** A basic scheduler exists but does not implement the full 10+10 daily logic.
     - **Next debug checklist:**
         1.  Modify  to create a main daily job that runs once at the start of business hours (e.g., 9 AM).
         2.  This job should select 10 random contacts for WhatsApp and 10 for email, respecting the max 2 messages per month rule.
-        3.  For each selected contact, it should find an  message that hasn't been sent to them before.
-        4.  It should then schedule these 20 messages to be sent throughout the day with randomized delays to stay within the 9 AM - 6 PM window.
-        5.  The existing  function can be used, but the selection and scheduling logic needs to be built.
-        6.  Requires AWS SES integration for email sending.
+        3.  Schedule these 20 messages to be sent throughout the day with randomized delays to stay within the 9 AM - 6 PM window.
+        4.  Requires AWS SES integration for email sending.
     - **Why fix this issue and what will be achieved with the fix?** This will implement the core value proposition of the application as defined by the user.
     - **Status:** NOT STARTED
     - **Is recurring issue?** N
     - **Should Test frontend/backend/both after fix?** backend
-    - **Blocked on other issue:** AWS SES Integration (for email part).
+    - **Blocked on other issue:** AWS SES Integration
 
 - **Issue 3: Refactor Monolithic Backend**
-    - **Attempted fixes:** None in this session. This is a known technical debt item.
+    - **Attempted fixes:** None.
     - **Next debug checklist:**
-        1.  Create directories: , , , .
-        2.  Move Pydantic models from  to files within .
-        3.  Move API endpoint functions () into separate files in  (e.g., , , ).
-        4.  Move business logic (database interactions, external API calls) into .
-        5.  Update  to be a lightweight entry point that includes the routers.
+        1.  Create directories: , , .
+        2.  Move Pydantic models, API endpoints, and business logic from  into the new structure.
+        3.  Update  to be a lightweight entry point that includes the routers.
     - **Why fix this issue and what will be achieved with the fix?** To improve maintainability, reduce complexity, and make future development easier and more stable. The  file is currently over 4500 lines long.
     - **Status:** NOT STARTED
     - **Is recurring issue?** N
@@ -106,149 +80,127 @@ test>  command on their Vultr server to create or update the user .
     - **Blocked on other issue:** None
 
 **In progress Task List**:
-- **Task 1: Finalize Super Admin CMS**
-    - **Where to resume:** The  component was added to . Verify it renders correctly under the /admin/pages route and that the Create/Edit/Delete functions work against the new API endpoints.
-    - **What will be achieved with this?** A fully functional CMS within the admin portal for managing site content.
+- **Task 1: Complete removal of hardcoded AI context**
+    - **Where to resume:** Continue editing . The agent was in the process of removing all residual IT-related fallback text from the  and  functions.
+    - **What will be achieved with this?** Full data isolation for tenants. AI content will be 100% based on the tenant's Business Profile.
     - **Status:** IN PROGRESS
-    - **Should Test frontend/backend/both after fix?** both
+    - **Should Test frontend/backend/both after fix?** backend
     - **Blocked on something:** None
 
 **Upcoming and Future Tasks**
 **Upcoming Tasks:**
-- **P0: Integrate AWS SES:** Implement email sending functionality as a prerequisite for the full automation loop. Use .
-- **P1: WhatsApp Web QR Login UI Verification:** Manually test the QR code login flow, as the automated screenshot tool fails.
-- **P2: Complete WhatsApp Cloud API inbox:** The UI for the Cloud API inbox is still incomplete.
+-   **P0: Integrate AWS SES:** Prerequisite for the full automation loop. Use .
+-   **P1: WhatsApp Web QR Login UI Verification:** Manual test needed as the automated screenshot tool fails.
+-   **P2: Complete WhatsApp Cloud API inbox:** The UI for the Cloud API inbox is still incomplete.
 
 **Future Tasks:**
-- **Phase 6: Full Channel Integrations:** Integrate LinkedIn API for company page post scheduling.
-- **Phase 7: Reply & Sentiment Handling:** Integrate a sentiment analysis model to classify replies.
-- **Phase 8: Analytics:** Build out the analytics dashboard with charts.
-- **Phase 9: SaaS Hardening:** Implement tenant usage dashboards, abuse detection, and detailed audit logs.
+-   **Phase 6: Full Channel Integrations:** Integrate LinkedIn API for company page post scheduling.
+-   **Phase 7: Reply & Sentiment Handling:** Integrate a sentiment analysis model to classify replies.
+-   **Phase 8: Analytics:** Build out the analytics dashboard with charts.
+-   **Phase 9: SaaS Hardening:** Implement tenant usage dashboards, abuse detection, and detailed audit logs.
 
 **Completed work in this session**
-- **AI Prompt Enhancement:** Successfully incorporated the user's detailed list of brands and solutions into the AI generation prompts. Verified with the backend testing agent.
-- **Vultr Server Deployment:** Provided comprehensive, step-by-step guidance for setting up the entire application stack (Python, Node, Nginx, Supervisor, Redis, MongoDB) on a fresh Ubuntu server on Vultr.
-- **Domain & SSL Setup:** Guided the user through configuring DNS for  and installing a Let's Encrypt SSL certificate.
-- **Message Scheduling & Rate Limiting:**
-    - Created a background scheduler () to process and send messages.
-    - Implemented a randomized 30-60 minute gap between scheduled messages to avoid bans.
-    - Added logic to prevent the same blueprint/message from being used twice for the same contact.
-- **SaaS Landing Page:**
-    - Created a new public landing page at the root URL.
-    - Implemented a dynamic pricing section that fetches plans from a backend endpoint.
-- **Super Admin Portal:**
-    - Created a new role .
-    - Built backend endpoints () and frontend UI for a super admin area.
-    - Implemented features for managing tenants, users, and pricing plans.
-    - Added a simple CMS for managing dynamic pages (e.g., Privacy Policy).
-- **Bulk Delete:** Added functionality to bulk delete blueprints and messages on the frontend.
+-   **Super Admin Setup & Fixes:** Set super admin credentials and fixed several bugs related to login, API access, and frontend routing for the  page, including adding a dedicated admin login form.
+-   **Business Profile Feature:** Implemented a per-tenant Business Profile page for users to provide their business context, removing the dependency on hardcoded data.
+-   **Customizable Blueprint Options:** Implemented a Blueprints tab in Settings to allow users to create and manage custom Intents, Angles, and CTAs. The blueprint generator UI was updated to include new fields for Message Length and CTA selection, with dropdowns populated from these masters.
+-   **Contact Import Sample:** Added a Download Sample CSV button to the contact import modal.
+-   **Message Generation Logic:** Updated the batch message generation to schedule messages for future dates based on a 2 per month rule, instead of blocking generation.
+-   **Numerous Bug Fixes:** Resolved critical bugs related to production deployment, including auth token handling, API prefixes, database name discrepancies ( vs ), and data serialization.
 
 **Earlier issues found/mentioned but not fixed**
-- **Issue 1: Screenshot Tool Login Failure**
-    - The  tool cannot handle the application's login flow, preventing automated UI verification.
-    - **Debug checklist:** This is a known limitation of the tool. The workaround is manual testing or using a different testing strategy.
-    - **Why to solve this issue and what will be achieved with this?** Enables reliable, automated end-to-end testing of frontend features.
-    - **Should Test frontend/backend/both after fix:** frontend
-    - **Is recurring issue?** Y
+-   **Issue 1: Screenshot Tool Login Failure**
+    -   The  tool cannot handle the application's login flow.
+    -   **Debug checklist:** This is a known limitation of the tool. The workaround is manual testing.
+    -   **Why to solve this issue and what will be achieved with this?** Enables reliable, automated end-to-end testing of frontend features.
+    -   **Should Test frontend/backend/both after fix:** frontend
+    -   **Is recurring issue?** Y
 
 **Known issue recurrence from previous fork**
-- **Issue recurrence in previous fork:** None
-- **Recurrence count:** 0
-- **Status:** NA
+-   **Issue recurrence in previous fork:** None
+-   **Recurrence count:** 0
+-   **Status:** NA
 
 **Code Architecture**
 
 
 **Key Technical Concepts**
-- **Backend:** FastAPI, Pydantic, MongoDB (), APScheduler.
-- **Frontend:** React, , Shadcn/UI, .
-- **Deployment:** The entire stack is now deployed and managed on an external Vultr (Ubuntu) server using Nginx, Supervisor, and Git for updates.
+-   **Backend:** FastAPI, Pydantic, MongoDB (, ), APScheduler, bcrypt.
+-   **Frontend:** React, , Shadcn/UI, , .
+-   **Deployment:** Vultr (Ubuntu) server using Nginx, Supervisor, and Git for updates.
 
 **key DB schema**
-- : added 
-- : added 
-- **New Collections:**
-    - : 
-    - : 
-    - : 
+-   : added 
+-   : added 
+-   **New Collections:**
+    -   : 
+    -   : 
+    -   : 
+    -   ****: 
+    -   ****: 
 
 **changes in tech stack**
-- ****: Added to the backend for running background jobs (message sending).
-- ****: Added to the frontend for rendering CMS page content.
+-   No new technologies were added, but existing ones (, ) were used extensively for direct database manipulation on the user's production server.
 
 **All files of reference**
-- : Heavily modified with Super Admin endpoints, CMS logic, and scheduling constraints.
-- : **New file** for the background message sending service.
-- : Updated with routes for landing page, admin, and CMS pages.
-- : **New file** for the marketing/pricing page.
-- : **New file** for the admin portal UI.
-- : **New file** for rendering dynamic CMS page content.
-- : Updated to handle redirects and default tabs.
-- : Updated with UI for message scheduling.
-- : **New file** to manage the scheduler service.
+-   : Heavily modified to add Business Profile, Custom Options APIs, update AI prompts, and fix numerous bugs.
+-   : **New file** for the Business Profile UI.
+-   : Modified to fetch and use custom options (intents, angles, CTA, length).
+-   : Modified to include a new Blueprints tab for managing custom options.
+-   : Modified to add a Download Sample CSV button.
+-   : Modified to display more specific error messages from the backend.
+-   : Modified to add the  route and a dedicated login form for the  route.
 
 **Areas that need refactoring**:
-- ** is critically oversized (>4500 lines)** and must be refactored into a modern structure with routers, services, and models. This is the highest priority technical debt.
+-   ** is critically oversized (>4500 lines)** and is the highest priority for refactoring.
+-   Many React components (, , etc.) have ESLint warnings for missing dependencies in  hooks, which could lead to stale data and bugs. These should be cleaned up.
 
 **key api endpoints**
-- **Admin:**
-    - 
-    - , , 
-    - 
-    - 
-- **CMS:**
-    - , 
-    - 
-- **Scheduling:**
-    - 
-    - 
+-   **Business Profile:** 
+-   **Custom Options:** 
+-   **Blueprint Generation:** ,  (request bodies updated)
+-   **Message Generation:**  (logic updated)
 
 **Critical Info for New Agent**
-- **Vultr Deployment:** The application is live on a user-managed Vultr server. The agent provided extensive guidance for the initial setup. Future changes require pulling from Git and restarting services on that server. All deployment commands should be tailored for this environment ( directory, Supervisor, Nginx).
-- **User's Core Goal:** The user has clearly defined the primary goal is the set and forget automation loop (10 WhatsApp + 10 email per day, max 2/month/contact, business hours). This should be the main focus of development.
-- **Admin Access:** The user has requested specific credentials for the super admin account (). This must be addressed immediately.
-- **Backend Refactor is Urgent:** The monolithic  is becoming unmanageable. Any significant new feature should ideally be preceded by or happen alongside this refactoring.
+-   **Tenant Data Isolation is paramount.** The immediate task is to finish removing ALL hardcoded fallback context from the AI prompts in . The user has repeatedly stressed this point.
+-   **Production Debugging Workflow:** The user is actively using a Vultr server. Be prepared to provide  and  commands for the user to run via SSH to debug issues directly on their production environment.
+-   **Production Database:** The app on Vultr uses the  database. The  user is the primary test account on production. Be aware that the preview environment database is separate and may not contain the same users or data.
 
 **documents and test reports created in this job**
-- 
-- 
-- 
-- 
-- 
+-  (updated)
 
 **Last 10 User Messages and any pending HUMAN messages**
-1.  **User:** Provided a screenshot and requested to make the Super Admin pages match the app's theme and add a CMS. (IN PROGRESS)
-2.  **User:** Requested specific admin credentials:  with password . (PENDING)
-3.  **User:** Approved the plan to build the Super Admin area.
-4.  **User:** Asked for a SaaS landing page with pricing, features, and benefits. (DONE)
-5.  **User:** Confirmed the SSL installation was successful.
-6.  **User:** Confirmed their DNS was set up correctly with a  CNAME record. (DONE)
-7.  **User:** Reported not being able to add a  record because one already existed. (RESOLVED)
-8.  **User:** Asked how to connect their domain . (DONE)
-9.  **User:** Confirmed the scheduler fix was deployed and asked to proceed.
-10. **User:** Clarified the full concept of the app: automated, gradual outreach to 10 random contacts per day, with a limit of 2 messages per contact per month. (PENDING IMPLEMENTATION)
+1.  **User:** Stated that the AI is still mixing IT content with the Eat8 tenant's profile. (CURRENT BLOCKER)
+2.  **User:** Ran the cleanup script to delete old blueprints and messages for the Eat8 tenant.
+3.  **User:** Showed a screenshot indicating that newly generated messages were still mixing contexts.
+4.  **User:** Confirmed that the Eat8 user has 0 approved blueprints, which was blocking message generation.
+5.  **User:** Reported that the Eat8 user was failing to generate messages.
+6.  **User:** Deployed the fix for custom dropdowns not syncing in the blueprint generator.
+7.  **User:** Pointed out that blueprint generator dropdowns (Intents/Angles) were not syncing with the masters created in Settings.
+8.  **User:** Deployed the new Settings page with the Blueprints tab.
+9.  **User:** Reported that the  link was not opening. (Fixed by agent)
+10. **User:** Requested customizable Angles, Intents, Message Length, and CTAs for blueprint generation.
 
 **Project Health Check:**
-- **Working:** Vultr deployment, User Auth, AI message generation, Basic scheduling, Landing page, Foundational Super Admin.
-- **In Progress:** Super Admin CMS functionality, Full automation engine.
-- **Broken:** The  tool's inability to log in remains an issue for automated frontend testing.
+-   **Working:** Core CRUD, Super Admin portal, Landing Page, Business Profile feature, Custom Blueprint options.
+-   **In Progress:** Tenant data isolation (fixing content mixing), Full automation engine.
+-   **Broken:** The  tool's inability to log in remains a blocker for automated frontend testing.
 
 **3rd Party Integrations**
-- **OpenAI GPT-5.2:** Used for message and blueprint generation via **Emergent LLM Key**.
-- **@whiskeysockets/baileys:** Powers the WhatsApp Web microservice.
-- **Redis:** Used for WhatsApp session persistence.
-- **AWS SES (Upcoming):** Required for email sending in the automation loop.
-- **WhatsApp Business Cloud API (Partially Implemented):** Setup exists but is not the primary sending method currently.
+-   **OpenAI GPT-5.2:** Used for message and blueprint generation via **Emergent LLM Key**.
+-   **@whiskeysockets/baileys:** Powers the WhatsApp Web microservice.
+-   **Redis:** Used for WhatsApp session persistence.
+-   **AWS SES (Upcoming):** Required for email sending in the automation loop.
+-   **WhatsApp Business Cloud API (Partially Implemented):** Setup exists but is not the primary sending method.
 
 **Testing status**
-- Testing agent used after significant changes: YES, for the AI prompt enhancement at the beginning of the session.
-- Troubleshoot agent used after agent stuck in loop: NO
-- Test files created: None.
-- Known regressions: None.
+-   Testing agent used after significant changes: NO
+-   Troubleshoot agent used after agent stuck in loop: NO
+-   Test files created: None.
+-   Known regressions: AI content generation is partially regressed due to missed hardcoded values.
 
 **Credentials to test flow:**
-- Register a new user on the live site .
-- **Super Admin:** Create the user  with password  and set  in the database.
+-   **Super Admin (Production):**  / . This user may need to be recreated or have its password reset directly on the Vultr server if login issues recur.
+-   **Regular Tenant (Production):** A user like  can be used to test tenant-specific features.
 
 **What agent forgot to execute**
-- The agent did not immediately act on the user's direct request to create the super admin user with specific credentials ( / ). This is the highest priority P0 task for the next agent.</analysis>
+-   The agent did not fully eradicate all hardcoded IT-related context from the AI prompts in  in its first attempt, leading to a recurring issue of mixed content for new tenants. The fix was started but not completed.</analysis>
