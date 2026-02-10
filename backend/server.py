@@ -1838,7 +1838,10 @@ async def generate_batch_ai_blueprints(
                         industry=request.industry,
                         target_role=request.target_role,
                         existing_blueprints=existing_structures + [g.get("structure", "") for g in generated],
-                        tenant_id=current_user["tenant_id"]
+                        tenant_id=current_user["tenant_id"],
+                        message_length=request.message_length.value if hasattr(request.message_length, 'value') else request.message_length,
+                        cta_type=request.cta_type.value if hasattr(request.cta_type, 'value') else request.cta_type,
+                        custom_cta=request.custom_cta
                     )
                     
                     # Create blueprint (not approved by default)
@@ -1852,7 +1855,10 @@ async def generate_batch_ai_blueprints(
                         structure=ai_result["structure"],
                         cooldown_days=7,
                         tenant_id=current_user["tenant_id"],
-                        is_approved=False
+                        is_approved=False,
+                        message_length=request.message_length,
+                        cta_type=request.cta_type,
+                        custom_cta=request.custom_cta
                     )
                     
                     doc = blueprint.model_dump()
