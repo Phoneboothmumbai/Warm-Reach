@@ -324,9 +324,23 @@ STRICT RULES:
 - Generate content ONLY about the company described above
 """
         
-        # If no business profile exists, return error - REQUIRE business profile
+        # If no business profile exists, use minimal generic context
         if not business_context:
-            raise Exception("Business profile not configured. Please set up your Business Profile in the app before generating blueprints.")
+            tenant = await db.tenants.find_one({"id": tenant_id}, {"_id": 0})
+            company = tenant.get("company_name", "") or tenant.get("name", "") if tenant else ""
+            
+            if company:
+                business_context = f"""
+ABOUT OUR COMPANY:
+{company}
+
+STRICT RULES:
+- NEVER mention pricing or costs
+- Focus on business value
+- Keep it professional
+"""
+            else:
+                raise Exception("Please set up your Business Profile (Settings > Business Profile) before generating blueprints.")
         
         intent_desc = {
             "awareness": "Introduce the company and create initial awareness",
