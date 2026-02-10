@@ -1180,12 +1180,12 @@ No links in first post.`;
                             onClick={() => {
                               const val = opt.name || opt.value;
                               const newAngles = aiForm.batch_angles.includes(val)
-                                ? aiForm.batch_angles.filter(a => a !== opt.value)
-                                : [...aiForm.batch_angles, opt.value];
+                                ? aiForm.batch_angles.filter(a => a !== val)
+                                : [...aiForm.batch_angles, val];
                               setAiForm({ ...aiForm, batch_angles: newAngles });
                             }}
                           >
-                            {opt.label}
+                            {opt.name || opt.label}
                           </Button>
                         ))}
                       </div>
