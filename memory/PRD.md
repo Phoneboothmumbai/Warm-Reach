@@ -84,6 +84,16 @@ Build a context-aware, controlled outreach SaaS that helps B2B service companies
 - [x] Fixed get_super_admin function (using current_user["id"] instead of current_user["sub"])
 - [x] Verified CMS Pages functionality working
 
+### February 10, 2026 Updates
+- [x] Business Profile feature for tenant-specific AI context
+- [x] Custom Intents, Angles, CTAs management in Settings
+- [x] Blueprint generator with Message Length and CTA options
+
+### December 12, 2025 Updates (Current Session)
+- [x] **AI Content Isolation Fix VERIFIED** - AI prompts now use ONLY tenant's Business Profile data
+- [x] Tested with restaurant business profiles - NO IT/technology contamination
+- [x] Proper error handling for tenants without business profiles
+
 ## P0 Features Remaining
 - [ ] AWS SES email sending integration
 - [ ] Full automation scheduler (10 WhatsApp + 10 email per day)
