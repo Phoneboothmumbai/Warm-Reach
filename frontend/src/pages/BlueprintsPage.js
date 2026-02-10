@@ -1253,7 +1253,7 @@ No links in first post.`;
                       </SelectTrigger>
                       <SelectContent>
                         {(customOptions.ctas?.length > 0 ? customOptions.ctas : ctaOptions).map((opt) => (
-                          <SelectItem key={opt.value} value={opt.value}>
+                          <SelectItem key={opt.value || opt.name} value={opt.value || opt.name}>
                             <div className="flex flex-col">
                               <span>{opt.label || opt.name}</span>
                               <span className="text-xs text-muted-foreground">{opt.description}</span>
