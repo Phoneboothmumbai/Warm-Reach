@@ -390,6 +390,12 @@ export const SettingsPage = () => {
             Organization
           </TabsTrigger>
           {isAdmin && (
+            <TabsTrigger value="blueprints" data-testid="settings-blueprints-tab">
+              <Target className="w-4 h-4 mr-2" />
+              Blueprints
+            </TabsTrigger>
+          )}
+          {isAdmin && (
             <TabsTrigger value="integrations" data-testid="settings-integrations-tab">
               <MessageCircle className="w-4 h-4 mr-2" />
               Integrations
