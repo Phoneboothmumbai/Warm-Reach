@@ -2257,6 +2257,7 @@ async def generate_batch_messages(
                     errors.append(f"Could not generate unique message for {contact['email']}")
                     continue
                 
+                # Create message with optional scheduled date
                 message = Message(
                     tenant_id=tenant_id,
                     contact_id=contact["id"],
@@ -2264,25 +2265,28 @@ async def generate_batch_messages(
                     channel=channel,
                     content=content,
                     status=MessageStatus.PENDING_APPROVAL,
-                    content_hash=content_hash
+                    content_hash=content_hash,
+                    scheduled_at=scheduled_at
                 )
                 
                 doc = message.model_dump()
                 doc['created_at'] = doc['created_at'].isoformat()
                 for field in ['scheduled_at', 'sent_at', 'delivered_at', 'approved_at']:
                     if doc.get(field):
-                        doc[field] = doc[field].isoformat()
+                        doc[field] = doc[field].isoformat() if hasattr(doc[field], 'isoformat') else doc[field]
                 
                 await db.messages.insert_one(doc)
                 await db.blueprints.update_one({"id": blueprint["id"]}, {"$inc": {"usage_count": 1}})
                 
+                scheduled_info = f" (scheduled: {scheduled_at.strftime('%Y-%m-%d')})" if scheduled_at else ""
                 generated.append({
                     "message_id": message.id,
                     "contact_name": f"{contact['first_name']} {contact['last_name']}",
                     "contact_email": contact['email'],
                     "channel": channel,
                     "blueprint_name": blueprint['name'],
-                    "content_preview": content[:150] + "..." if len(content) > 150 else content
+                    "content_preview": content[:150] + "..." if len(content) > 150 else content,
+                    "scheduled_at": scheduled_at.isoformat() if scheduled_at else None
                 })
                 
                 processed_contacts.add(contact["id"])
