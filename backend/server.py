@@ -280,7 +280,7 @@ async def generate_ai_blueprint(channel: str, intent: str, angle: str, tone: str
             profile = await db.business_profiles.find_one({"tenant_id": tenant_id}, {"_id": 0})
             if profile and profile.get("company_name"):
                 products = profile.get("products_services", [])
-                products_text = ", ".join([p.get('name', '') for p in products]) if products else "Various solutions"
+                products_text = ", ".join([p.get('name', '') for p in products]) if products else "Products and services as described"
                 
                 clients = profile.get("key_clients", [])
                 clients_text = ", ".join(clients) if clients else "Various clients"
@@ -305,48 +305,12 @@ STRICT RULES:
 - NEVER mention competitor names
 - Focus on business value
 - Reference relevant solutions based on context
+- Generate content ONLY about the company described above
 """
         
-        # Fallback to default context if no profile
+        # If no business profile exists, return error - REQUIRE business profile
         if not business_context:
-            business_context = """
-ABOUT OUR COMPANY (Use this context for all blueprints):
-We are an end-to-end IT solutions company. Our services include:
-- Proactive IT support and maintenance
-- Device procurement and lifecycle management
-- Security, backups, and infrastructure management
-- Remote support, asset tracking, and monitoring
-- Corporate IT setups, repairs, and troubleshooting
-
-NeoStore (Mumbai) specializes in Apple products, enterprise support, and hardware solutions.
-
-BRANDS & SOLUTIONS WE WORK WITH:
-
-HARDWARE: Apple (MacBook, iMac, iPhone, iPad), Lenovo (ThinkPad, ThinkCentre), Dell (Latitude, OptiPlex, Precision), HP (EliteBook, ProDesk, ZBook)
-
-CLOUD & PRODUCTIVITY: Google Workspace (Gmail, Drive, Meet), Microsoft 365 (Teams, SharePoint, OneDrive), Microsoft Azure
-
-NETWORKING & SECURITY: Cisco (Meraki), Ubiquiti (UniFi), Fortinet (FortiGate), SonicWall
-
-BACKUP & RECOVERY: Veeam, Acronis, Datto
-
-ENDPOINT MANAGEMENT: Jamf (Apple MDM), Microsoft Intune, Kandji
-
-MONITORING: ConnectWise, NinjaRMM, Domotz
-
-KEY VALUE PROPS TO HIGHLIGHT:
-- Preventive IT reduces downtime and hidden costs
-- Long-term IT partner, not just a vendor
-- Quietly reliable, responsive, and accountable
-- Real technical expertise
-- Multi-platform expertise (Apple, Windows, hybrid)
-
-STRICT RULES - NEVER MENTION:
-- Pricing, costs, or specific numbers
-- Competitor names (only brands we work with)
-- Generic sales language
-- Reference relevant brands based on target industry context
-"""
+            raise Exception("Business profile not configured. Please set up your Business Profile in the app before generating blueprints.")
         
         intent_desc = {
             "awareness": "Introduce our IT services and create initial awareness about proactive IT support",
