@@ -161,13 +161,13 @@ Message Blueprint:
         # Variation seed - ensures different outputs each time
         variation_seed = random.randint(1000, 9999)
         opening_styles = [
-            "Start with a genuine observation about their IT challenges",
-            "Begin with a thought-provoking question about their tech operations",
-            "Open with a relevant industry trend about IT/security",
-            "Start by acknowledging their role in managing technology",
-            "Open with a question about their current IT support experience",
-            "Start with curiosity about how they handle device management",
-            "Begin by referencing common IT pain points for growing companies"
+            "Start with a genuine observation about their business challenges",
+            "Begin with a thought-provoking question relevant to their industry",
+            "Open with a relevant industry trend",
+            "Start by acknowledging their role and responsibilities",
+            "Open with a question about their current situation",
+            "Start with curiosity about how they handle their day-to-day",
+            "Begin by referencing common pain points for their type of business"
         ]
         selected_style = random.choice(opening_styles)
         
@@ -188,7 +188,7 @@ Your message must:
 - NOT start with similar phrases if previous messages use them
 """
         
-        prompt = f"""Generate a B2B outreach message for an IT solutions company. Variation #{variation_seed}
+        prompt = f"""Generate a B2B outreach message. Variation #{variation_seed}
 
 {business_context}
 
@@ -207,11 +207,12 @@ STRICT RULES:
 2. DO NOT mention pricing, costs, or specific numbers
 3. DO NOT mention any competitor names
 4. Replace placeholders with actual contact data
-5. Focus on IT pain points: downtime, security risks, device management, support quality
-6. Position as a long-term IT partner, not a vendor
+5. Focus ONLY on what is described in the ABOUT OUR COMPANY section above
+6. Position as a trusted partner, not a vendor
 7. Use the specified opening style: {selected_style}
 8. Be concise - respect their time
-7. If you don't have company details, focus on the recipient's role/position instead
+9. If you don't have company details, focus on the recipient's role/position instead
+10. NEVER mention IT, tech stack, security, devices, or infrastructure unless it's in the business profile
 
 OUTPUT: Generate ONLY the message text. No subject lines, no labels, no explanations."""
 
