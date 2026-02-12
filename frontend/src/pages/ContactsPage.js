@@ -18,7 +18,11 @@ import {
   CheckCircle,
   XCircle,
   ChevronDown,
-  X
+  X,
+  MessageSquare,
+  Pause,
+  Play,
+  Calendar
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
