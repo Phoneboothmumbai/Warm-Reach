@@ -1639,6 +1639,191 @@ async def import_contacts(
         "errors": errors[:10]
     }
 
+@api_router.post("/contacts/{contact_id}/pause")
+async def pause_contact_outreach(
+    contact_id: str,
+    current_user: Dict = Depends(get_current_user)
+):
+    """Pause outreach to a specific contact. Scheduled messages will be held."""
+    contact = await db.contacts.find_one({
+        "id": contact_id,
+        "tenant_id": current_user["tenant_id"]
+    })
+    if not contact:
+        raise HTTPException(status_code=404, detail="Contact not found")
+    
+    await db.contacts.update_one(
+        {"id": contact_id, "tenant_id": current_user["tenant_id"]},
+        {"$set": {"outreach_paused": True, "outreach_paused_at": datetime.now(timezone.utc).isoformat()}}
+    )
+    
+    await log_audit(current_user["tenant_id"], current_user["id"], "pause_outreach", "contact", contact_id)
+    
+    return {"message": "Outreach paused for this contact", "contact_id": contact_id}
+
+@api_router.post("/contacts/{contact_id}/resume")
+async def resume_contact_outreach(
+    contact_id: str,
+    current_user: Dict = Depends(get_current_user)
+):
+    """Resume outreach to a paused contact. Scheduled dates will be shifted forward."""
+    contact = await db.contacts.find_one({
+        "id": contact_id,
+        "tenant_id": current_user["tenant_id"]
+    })
+    if not contact:
+        raise HTTPException(status_code=404, detail="Contact not found")
+    
+    paused_at = contact.get("outreach_paused_at")
+    if paused_at:
+        if isinstance(paused_at, str):
+            paused_at = datetime.fromisoformat(paused_at.replace('Z', '+00:00'))
+        
+        now = datetime.now(timezone.utc)
+        days_paused = (now - paused_at).days
+        
+        # Shift all scheduled messages forward by the number of days paused
+        if days_paused > 0:
+            scheduled_messages = await db.messages.find({
+                "tenant_id": current_user["tenant_id"],
+                "contact_id": contact_id,
+                "status": {"$in": [MessageStatus.PENDING_APPROVAL, MessageStatus.APPROVED, MessageStatus.SCHEDULED]},
+                "scheduled_at": {"$ne": None}
+            }).to_list(100)
+            
+            for msg in scheduled_messages:
+                old_date = msg.get("scheduled_at")
+                if old_date:
+                    if isinstance(old_date, str):
+                        old_date = datetime.fromisoformat(old_date.replace('Z', '+00:00'))
+                    new_date = old_date + timedelta(days=days_paused)
+                    await db.messages.update_one(
+                        {"id": msg["id"]},
+                        {"$set": {"scheduled_at": new_date.isoformat()}}
+                    )
+    
+    await db.contacts.update_one(
+        {"id": contact_id, "tenant_id": current_user["tenant_id"]},
+        {"$set": {"outreach_paused": False}, "$unset": {"outreach_paused_at": ""}}
+    )
+    
+    await log_audit(current_user["tenant_id"], current_user["id"], "resume_outreach", "contact", contact_id)
+    
+    return {"message": "Outreach resumed for this contact", "contact_id": contact_id}
+
+@api_router.get("/contacts/{contact_id}/messages")
+async def get_contact_messages(
+    contact_id: str,
+    current_user: Dict = Depends(get_current_user)
+):
+    """Get all messages (scheduled and sent) for a specific contact"""
+    contact = await db.contacts.find_one({
+        "id": contact_id,
+        "tenant_id": current_user["tenant_id"]
+    }, {"_id": 0})
+    
+    if not contact:
+        raise HTTPException(status_code=404, detail="Contact not found")
+    
+    messages = await db.messages.find({
+        "tenant_id": current_user["tenant_id"],
+        "contact_id": contact_id
+    }, {"_id": 0}).sort("scheduled_at", 1).to_list(200)
+    
+    # Get blueprint names for each message
+    blueprint_ids = list(set(m.get("blueprint_id") for m in messages if m.get("blueprint_id")))
+    blueprints = await db.blueprints.find({"id": {"$in": blueprint_ids}}, {"_id": 0, "id": 1, "name": 1}).to_list(100)
+    blueprint_map = {b["id"]: b["name"] for b in blueprints}
+    
+    for msg in messages:
+        msg["blueprint_name"] = blueprint_map.get(msg.get("blueprint_id"), "Unknown")
+    
+    return {
+        "contact": contact,
+        "messages": messages,
+        "total_count": len(messages),
+        "outreach_paused": contact.get("outreach_paused", False)
+    }
+
+@api_router.get("/messages/grouped-by-contact")
+async def get_messages_grouped_by_contact(
+    status: Optional[str] = None,
+    channel: Optional[str] = None,
+    current_user: Dict = Depends(get_current_user)
+):
+    """Get all messages grouped by contact for cleaner UI"""
+    tenant_id = current_user["tenant_id"]
+    
+    # Build query
+    query = {"tenant_id": tenant_id}
+    if status:
+        query["status"] = status
+    if channel:
+        query["channel"] = channel
+    
+    # Get all messages
+    messages = await db.messages.find(query, {"_id": 0}).sort("scheduled_at", 1).to_list(1000)
+    
+    # Get all relevant contacts
+    contact_ids = list(set(m.get("contact_id") for m in messages))
+    contacts = await db.contacts.find(
+        {"id": {"$in": contact_ids}, "tenant_id": tenant_id},
+        {"_id": 0}
+    ).to_list(500)
+    contact_map = {c["id"]: c for c in contacts}
+    
+    # Get blueprint names
+    blueprint_ids = list(set(m.get("blueprint_id") for m in messages if m.get("blueprint_id")))
+    blueprints = await db.blueprints.find({"id": {"$in": blueprint_ids}}, {"_id": 0, "id": 1, "name": 1}).to_list(100)
+    blueprint_map = {b["id"]: b["name"] for b in blueprints}
+    
+    # Group messages by contact
+    grouped = {}
+    for msg in messages:
+        contact_id = msg.get("contact_id")
+        if contact_id not in grouped:
+            contact = contact_map.get(contact_id, {})
+            grouped[contact_id] = {
+                "contact_id": contact_id,
+                "contact_name": f"{contact.get('first_name', '')} {contact.get('last_name', '')}".strip() or contact.get('email', 'Unknown'),
+                "contact_email": contact.get("email", ""),
+                "company_name": contact.get("company_name", ""),
+                "outreach_paused": contact.get("outreach_paused", False),
+                "messages": [],
+                "total_scheduled": 0,
+                "total_sent": 0,
+                "total_pending": 0,
+                "next_scheduled": None
+            }
+        
+        msg["blueprint_name"] = blueprint_map.get(msg.get("blueprint_id"), "Unknown")
+        grouped[contact_id]["messages"].append(msg)
+        
+        # Update counts
+        if msg.get("status") == MessageStatus.SENT:
+            grouped[contact_id]["total_sent"] += 1
+        elif msg.get("status") == MessageStatus.SCHEDULED:
+            grouped[contact_id]["total_scheduled"] += 1
+        elif msg.get("status") == MessageStatus.PENDING_APPROVAL:
+            grouped[contact_id]["total_pending"] += 1
+        
+        # Track next scheduled date
+        if msg.get("scheduled_at") and msg.get("status") in [MessageStatus.SCHEDULED, MessageStatus.APPROVED]:
+            scheduled = msg.get("scheduled_at")
+            if not grouped[contact_id]["next_scheduled"] or scheduled < grouped[contact_id]["next_scheduled"]:
+                grouped[contact_id]["next_scheduled"] = scheduled
+    
+    # Convert to list and sort by contact name
+    result = sorted(grouped.values(), key=lambda x: x["contact_name"].lower())
+    
+    return {
+        "contacts": result,
+        "total_contacts": len(result),
+        "total_messages": len(messages)
+    }
+
+
+
 # ========================
 # BLUEPRINTS ROUTES
 # ========================
