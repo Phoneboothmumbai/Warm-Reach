@@ -1002,11 +1002,11 @@ export const MessagesPage = () => {
                     min={1}
                     max={50}
                     value={batchForm.max_messages}
-                    onChange={(e) => setBatchForm({ ...batchForm, max_messages: parseInt(e.target.value) || 10 })}
+                    onChange={(e) => setBatchForm({ ...batchForm, max_messages: Math.min(50, parseInt(e.target.value) || 10) })}
                     data-testid="batch-max-messages"
                   />
                   <p className="text-xs text-muted-foreground">
-                    Max messages to generate (respects rate limits)
+                    Max 50 messages per batch. Messages auto-schedule to future dates (max 2/contact/month).
                   </p>
                 </div>
 
