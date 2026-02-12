@@ -114,19 +114,77 @@ export const MessagesPage = () => {
         url += `&channel=${channelFilter}`;
       }
 
-      const [messagesRes, contactsRes, blueprintsRes] = await Promise.all([
+      // Fetch both regular and grouped data
+      const fetchPromises = [
         authFetch(url),
         authFetch(`${API}/contacts?limit=200`),
         authFetch(`${API}/blueprints`)
-      ]);
+      ];
+      
+      // Add grouped endpoint if in grouped view
+      if (viewMode === "grouped") {
+        let groupedUrl = `${API}/messages/grouped-by-contact`;
+        const params = [];
+        if (statusFilter !== "all") params.push(`status=${statusFilter}`);
+        if (channelFilter !== "all") params.push(`channel=${channelFilter}`);
+        if (params.length > 0) groupedUrl += `?${params.join("&")}`;
+        fetchPromises.push(authFetch(groupedUrl));
+      }
+
+      const [messagesRes, contactsRes, blueprintsRes, groupedRes] = await Promise.all(fetchPromises);
 
       if (messagesRes.ok) setMessages(await messagesRes.json());
       if (contactsRes.ok) setContacts(await contactsRes.json());
       if (blueprintsRes.ok) setBlueprints(await blueprintsRes.json());
+      if (groupedRes?.ok) setGroupedData(await groupedRes.json());
     } catch (error) {
       toast.error("Failed to load data");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const toggleContactExpand = (contactId) => {
+    setExpandedContacts(prev => {
+      const next = new Set(prev);
+      if (next.has(contactId)) {
+        next.delete(contactId);
+      } else {
+        next.add(contactId);
+      }
+      return next;
+    });
+  };
+
+  const handlePauseContact = async (contactId) => {
+    try {
+      const response = await authFetch(`${API}/contacts/${contactId}/pause`, {
+        method: "POST"
+      });
+      if (response.ok) {
+        toast.success("Outreach paused for this contact");
+        fetchData();
+      } else {
+        toast.error("Failed to pause outreach");
+      }
+    } catch (error) {
+      toast.error("Failed to pause outreach");
+    }
+  };
+
+  const handleResumeContact = async (contactId) => {
+    try {
+      const response = await authFetch(`${API}/contacts/${contactId}/resume`, {
+        method: "POST"
+      });
+      if (response.ok) {
+        toast.success("Outreach resumed - scheduled dates shifted forward");
+        fetchData();
+      } else {
+        toast.error("Failed to resume outreach");
+      }
+    } catch (error) {
+      toast.error("Failed to resume outreach");
     }
   };
 
