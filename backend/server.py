@@ -200,6 +200,8 @@ Your message must:
         
         prompt = f"""Generate a B2B outreach message. Variation #{variation_seed}
 
+{custom_instructions}
+
 {business_context}
 
 {contact_context}
@@ -224,13 +226,14 @@ STRICT RULES:
 9. If you don't have company details, focus on the recipient's role/position instead
 10. NEVER mention IT, tech stack, security, devices, or infrastructure unless it's in the business profile
 11. FORMAT: Add a BLANK LINE between each paragraph/section for readability
+12. FOLLOW ALL CUSTOM INSTRUCTIONS above if provided
 
 OUTPUT: Generate ONLY the message text. No subject lines, no labels, no explanations."""
 
         llm_chat = LlmChat(
             api_key=EMERGENT_LLM_KEY,
             session_id=f"msg_gen_{contact.get('id', 'unknown')}_{int(time.time())}_{variation_seed}",
-            system_message="You are a creative B2B copywriter. Generate content ONLY based on the company profile provided. Each message you write is unique and personalized. Never use the same opening twice. Vary your sentence structure, word choice, and approach every time."
+            system_message="You are a creative B2B copywriter. Generate content ONLY based on the company profile provided. Each message you write is unique and personalized. Never use the same opening twice. Vary your sentence structure, word choice, and approach every time. Always follow custom instructions if provided."
         )
         
         # Use GPT-5.2 model with temperature for variation
