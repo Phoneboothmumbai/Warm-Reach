@@ -1600,27 +1600,46 @@ async def import_contacts(
         raise HTTPException(status_code=400, detail="Only CSV files are supported")
     
     content = await file.read()
-    decoded = content.decode('utf-8')
+    try:
+        decoded = content.decode('utf-8')
+    except UnicodeDecodeError:
+        # Try with latin-1 encoding as fallback
+        decoded = content.decode('latin-1')
+    
     reader = csv.DictReader(io.StringIO(decoded))
     
     imported = 0
     duplicates = 0
     errors = []
+    batch = []
+    batch_size = 500  # Insert in batches of 500
+    
+    # Get existing emails for this tenant to check duplicates in memory (faster)
+    existing_emails = set()
+    existing_cursor = db.contacts.find(
+        {"tenant_id": current_user["tenant_id"]},
+        {"email": 1, "_id": 0}
+    )
+    async for doc in existing_cursor:
+        if doc.get("email"):
+            existing_emails.add(doc["email"].lower())
     
     for row in reader:
         try:
             email = row.get('email') or row.get('Email') or row.get('EMAIL')
             if not email:
-                errors.append(f"Row missing email: {row}")
+                errors.append(f"Row missing email")
                 continue
             
-            existing = await db.contacts.find_one({
-                "tenant_id": current_user["tenant_id"],
-                "email": email
-            })
-            if existing:
+            email = email.strip().lower()
+            
+            # Check duplicate in memory (much faster than DB query per row)
+            if email in existing_emails:
                 duplicates += 1
                 continue
+            
+            # Add to existing set to catch duplicates within the file
+            existing_emails.add(email)
             
             contact = Contact(
                 first_name=row.get('first_name') or row.get('First Name') or row.get('FirstName') or '',
@@ -1642,11 +1661,21 @@ async def import_contacts(
                 if doc['last_contacted'][ch]:
                     doc['last_contacted'][ch] = doc['last_contacted'][ch].isoformat()
             
-            await db.contacts.insert_one(doc)
+            batch.append(doc)
             imported += 1
             
+            # Insert in batches
+            if len(batch) >= batch_size:
+                await db.contacts.insert_many(batch)
+                batch = []
+                
         except Exception as e:
-            errors.append(f"Error processing row: {str(e)}")
+            if len(errors) < 10:  # Only keep first 10 errors
+                errors.append(f"Error: {str(e)[:50]}")
+    
+    # Insert remaining batch
+    if batch:
+        await db.contacts.insert_many(batch)
     
     await log_audit(current_user["tenant_id"], current_user["id"], "import", "contact", "bulk", {
         "imported": imported,
