@@ -262,6 +262,16 @@ async def generate_ai_blueprint(channel: str, intent: str, angle: str, tone: str
         import random
         import time
         
+        # Fetch AI instructions for blueprints
+        custom_instructions = ""
+        if tenant_id:
+            ai_instructions = await db.ai_instructions.find_one({"tenant_id": tenant_id}, {"_id": 0})
+            if ai_instructions and ai_instructions.get("blueprint_instructions"):
+                custom_instructions = f"""
+CUSTOM INSTRUCTIONS (MUST FOLLOW):
+{ai_instructions.get('blueprint_instructions')}
+"""
+        
         # Message length guidance
         length_guidance = {
             "short": "Keep the message very concise: 2-3 lines maximum. Be brief and direct.",
