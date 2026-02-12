@@ -470,13 +470,14 @@ STRICT RULES:
 7. Follow channel constraints strictly
 8. Do NOT reference any industry or products not mentioned in the business profile
 9. FORMAT: Add a BLANK LINE between each paragraph/section for better readability
+10. FOLLOW ALL CUSTOM INSTRUCTIONS above if provided
 
 Return ONLY the message template text."""
 
         llm_chat = LlmChat(
             api_key=EMERGENT_LLM_KEY,
             session_id=f"blueprint_gen_{int(time.time())}_{variation_seed}",
-            system_message="You are a creative B2B copywriter. Generate content ONLY based on the company profile provided. Each blueprint is unique with different hooks, structures, and phrasing. Never repeat patterns."
+            system_message="You are a creative B2B copywriter. Generate content ONLY based on the company profile provided. Each blueprint is unique with different hooks, structures, and phrasing. Never repeat patterns. Always follow custom instructions if provided."
         )
         
         llm_chat = llm_chat.with_model("openai", "gpt-5.2")
