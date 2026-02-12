@@ -3251,6 +3251,68 @@ async def delete_custom_option(
     
     return {"message": "Custom option deleted"}
 
+# ========================
+# AI INSTRUCTIONS
+# ========================
+
+class AIInstructions(BaseModel):
+    message_instructions: Optional[str] = ""
+    blueprint_instructions: Optional[str] = ""
+
+@api_router.get("/settings/ai-instructions")
+async def get_ai_instructions(current_user: Dict = Depends(get_current_user)):
+    """Get AI instructions for message and blueprint generation"""
+    instructions = await db.ai_instructions.find_one(
+        {"tenant_id": current_user["tenant_id"]},
+        {"_id": 0}
+    )
+    if not instructions:
+        return {
+            "message_instructions": "",
+            "blueprint_instructions": ""
+        }
+    return {
+        "message_instructions": instructions.get("message_instructions", ""),
+        "blueprint_instructions": instructions.get("blueprint_instructions", "")
+    }
+
+@api_router.post("/settings/ai-instructions")
+async def save_ai_instructions(
+    instructions: AIInstructions,
+    current_user: Dict = Depends(get_current_user)
+):
+    """Save AI instructions for message and blueprint generation"""
+    if current_user["role"] not in [UserRole.OWNER, UserRole.ADMIN]:
+        raise HTTPException(status_code=403, detail="Only owner and admin can update AI instructions")
+    
+    tenant_id = current_user["tenant_id"]
+    
+    existing = await db.ai_instructions.find_one({"tenant_id": tenant_id})
+    
+    if existing:
+        await db.ai_instructions.update_one(
+            {"tenant_id": tenant_id},
+            {"$set": {
+                "message_instructions": instructions.message_instructions,
+                "blueprint_instructions": instructions.blueprint_instructions,
+                "updated_at": datetime.now(timezone.utc).isoformat()
+            }}
+        )
+    else:
+        await db.ai_instructions.insert_one({
+            "tenant_id": tenant_id,
+            "message_instructions": instructions.message_instructions,
+            "blueprint_instructions": instructions.blueprint_instructions,
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        })
+    
+    await log_audit(tenant_id, current_user["id"], "update", "ai_instructions", tenant_id, {})
+    
+    return {"message": "AI instructions saved"}
+
+
+
 @api_router.get("/settings/whatsapp", response_model=WhatsAppSettingsResponse)
 async def get_whatsapp_settings(current_user: Dict = Depends(get_current_user)):
     """Get WhatsApp Business API configuration status for the tenant."""
