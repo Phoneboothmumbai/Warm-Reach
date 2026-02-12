@@ -1288,6 +1288,59 @@ async def get_previous_messages_for_contact(tenant_id: str, contact_id: str, cha
     
     return [m.get("content", "") for m in messages]
 
+async def calculate_next_schedule_date(tenant_id: str, contact_id: str, now: datetime) -> datetime:
+    """
+    Calculate the next available schedule date for a contact.
+    Rules:
+    - Max 2 messages per contact per month
+    - At least 14 days between messages
+    - Schedules into future months as needed
+    """
+    # Get all scheduled/pending messages for this contact, sorted by scheduled date
+    existing_messages = await db.messages.find({
+        "tenant_id": tenant_id,
+        "contact_id": contact_id,
+        "status": {"$in": [MessageStatus.PENDING_APPROVAL, MessageStatus.APPROVED, MessageStatus.SCHEDULED]},
+        "scheduled_at": {"$ne": None}
+    }).sort("scheduled_at", -1).to_list(100)
+    
+    if not existing_messages:
+        # No existing messages, schedule for now or tomorrow during business hours
+        return now + timedelta(days=1)
+    
+    # Find the last scheduled date
+    last_scheduled = existing_messages[0].get("scheduled_at")
+    if isinstance(last_scheduled, str):
+        last_scheduled = datetime.fromisoformat(last_scheduled.replace('Z', '+00:00'))
+    
+    # Next message should be at least 14 days after the last one
+    next_date = last_scheduled + timedelta(days=14)
+    
+    # Check how many messages are already scheduled in that month
+    target_month_start = next_date.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    target_month_end = (target_month_start + timedelta(days=32)).replace(day=1)
+    
+    messages_in_month = sum(1 for m in existing_messages 
+                           if m.get("scheduled_at") and 
+                           target_month_start <= (datetime.fromisoformat(m["scheduled_at"].replace('Z', '+00:00')) 
+                                                  if isinstance(m["scheduled_at"], str) 
+                                                  else m["scheduled_at"]) < target_month_end)
+    
+    # If already 2 messages in that month, push to next month
+    while messages_in_month >= 2:
+        next_date = target_month_end + timedelta(days=1)
+        target_month_start = next_date.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        target_month_end = (target_month_start + timedelta(days=32)).replace(day=1)
+        messages_in_month = sum(1 for m in existing_messages 
+                               if m.get("scheduled_at") and 
+                               target_month_start <= (datetime.fromisoformat(m["scheduled_at"].replace('Z', '+00:00')) 
+                                                      if isinstance(m["scheduled_at"], str) 
+                                                      else m["scheduled_at"]) < target_month_end)
+    
+    return next_date
+
+
+
 async def log_audit(tenant_id: str, user_id: str, action: str, resource_type: str, resource_id: str, details: Dict = None):
     """Log an audit entry"""
     log = AuditLog(
