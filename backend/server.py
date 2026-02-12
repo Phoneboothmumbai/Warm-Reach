@@ -2145,14 +2145,18 @@ async def generate_batch_messages(
 ):
     """
     Automatically generate multiple unique messages at once.
-    - Max 2 messages per contact per month
-    - Messages are scheduled for future if contact already has pending/recent messages
-    - Does not block generation - queues them up
+    - Max 2 messages per contact per month (spread over future months)
+    - Messages are scheduled for future dates automatically
+    - Batch limit: 50 messages per request
+    - Skips paused contacts
     """
     tenant_id = current_user["tenant_id"]
     generated = []
     skipped = 0
     errors = []
+    
+    # Enforce batch limit of 50
+    max_messages = min(request.max_messages, 50)
     
     # Get all blueprints (filter by channel if specified)
     blueprint_query = {"tenant_id": tenant_id, "is_approved": True}
@@ -2166,12 +2170,13 @@ async def generate_batch_messages(
     if not blueprints:
         raise HTTPException(status_code=400, detail="No approved blueprints found. Create and approve blueprints first.")
     
-    # Get eligible contacts
+    # Get eligible contacts (exclude paused contacts)
     contact_query = {
         "tenant_id": tenant_id,
         "status": {"$nin": [ContactStatus.BLACKLISTED, ContactStatus.NOT_INTERESTED]},
         "context_flags.do_not_contact": {"$ne": True},
-        "context_flags.negative_sentiment_detected": {"$ne": True}
+        "context_flags.negative_sentiment_detected": {"$ne": True},
+        "outreach_paused": {"$ne": True}  # Skip paused contacts
     }
     
     contacts = await db.contacts.find(contact_query, {"_id": 0}).to_list(500)
@@ -2179,37 +2184,21 @@ async def generate_batch_messages(
     if not contacts:
         raise HTTPException(status_code=400, detail="No eligible contacts found.")
     
-    # Calculate start of current month for monthly limit check
     now = datetime.now(timezone.utc)
-    month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-    
-    # Track which contacts we've already processed in this batch
-    processed_contacts = set()
     
     # Shuffle contacts and blueprints for variety
     random.shuffle(contacts)
     random.shuffle(blueprints)
     
     for contact in contacts:
-        if len(generated) >= request.max_messages:
+        if len(generated) >= max_messages:
             break
-        
-        if contact["id"] in processed_contacts:
-            continue
-        
-        # Check monthly limit: max 2 messages per contact per month
-        monthly_count = await db.messages.count_documents({
-            "tenant_id": tenant_id,
-            "contact_id": contact["id"],
-            "created_at": {"$gte": month_start.isoformat()}
-        })
-        
-        if monthly_count >= 2:
-            skipped += 1
-            continue
         
         # Find a suitable blueprint that hasn't been used for this contact
         for blueprint in blueprints:
+            if len(generated) >= max_messages:
+                break
+                
             channel = blueprint["channel"]
             
             # Check if this blueprint was already used for this contact
@@ -2262,29 +2251,10 @@ async def generate_batch_messages(
                     errors.append(f"Could not generate unique message for {contact['email']}")
                     continue
                 
-                # Calculate scheduled date based on existing messages for this contact
-                scheduled_at = None
-                existing_scheduled = await db.messages.find({
-                    "tenant_id": tenant_id,
-                    "contact_id": contact["id"],
-                    "status": {"$in": [MessageStatus.PENDING_APPROVAL, MessageStatus.APPROVED, MessageStatus.SCHEDULED]}
-                }).sort("scheduled_at", -1).to_list(10)
+                # Calculate scheduled date: spread messages 14+ days apart, respecting 2/month rule
+                scheduled_at = await calculate_next_schedule_date(tenant_id, contact["id"], now)
                 
-                if existing_scheduled:
-                    # Schedule at least 14 days after the last scheduled/pending message
-                    last_scheduled = existing_scheduled[0].get("scheduled_at")
-                    if last_scheduled:
-                        if isinstance(last_scheduled, str):
-                            last_scheduled = datetime.fromisoformat(last_scheduled.replace('Z', '+00:00'))
-                        scheduled_at = last_scheduled + timedelta(days=14)
-                    else:
-                        scheduled_at = now + timedelta(days=14)
-                
-                if duplicate:
-                    errors.append(f"Could not generate unique message for {contact['email']}")
-                    continue
-                
-                # Create message with optional scheduled date
+                # Create message with scheduled date
                 message = Message(
                     tenant_id=tenant_id,
                     contact_id=contact["id"],
@@ -2316,7 +2286,6 @@ async def generate_batch_messages(
                     "scheduled_at": scheduled_at.isoformat() if scheduled_at else None
                 })
                 
-                processed_contacts.add(contact["id"])
                 break  # Move to next contact after successful generation
                 
             except Exception as e:
