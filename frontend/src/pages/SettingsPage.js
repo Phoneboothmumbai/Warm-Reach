@@ -99,6 +99,10 @@ export const SettingsPage = () => {
   const [newAngle, setNewAngle] = useState({ name: "", description: "" });
   const [newCta, setNewCta] = useState({ name: "", description: "" });
   const [savingOption, setSavingOption] = useState(false);
+  
+  // AI Instructions
+  const [aiInstructions, setAiInstructions] = useState({ message_instructions: "", blueprint_instructions: "" });
+  const [savingInstructions, setSavingInstructions] = useState(false);
 
   const isOwner = user?.role === "owner";
   const isAdmin = user?.role === "admin" || isOwner;
@@ -110,13 +114,14 @@ export const SettingsPage = () => {
   const fetchSettings = async () => {
     setLoading(true);
     try {
-      const [tenantRes, usersRes, logsRes, whatsappRes, ipRes, customRes] = await Promise.all([
+      const [tenantRes, usersRes, logsRes, whatsappRes, ipRes, customRes, aiRes] = await Promise.all([
         authFetch(`${API}/settings/tenant`),
         isAdmin ? authFetch(`${API}/settings/users`) : Promise.resolve({ ok: false }),
         isAdmin ? authFetch(`${API}/audit-logs?limit=50`) : Promise.resolve({ ok: false }),
         isAdmin ? authFetch(`${API}/settings/whatsapp`) : Promise.resolve({ ok: false }),
         isAdmin ? authFetch(`${API}/settings/ip-whitelist`) : Promise.resolve({ ok: false }),
-        authFetch(`${API}/settings/custom-options`)
+        authFetch(`${API}/settings/custom-options`),
+        authFetch(`${API}/settings/ai-instructions`)
       ]);
 
       if (tenantRes.ok) {
