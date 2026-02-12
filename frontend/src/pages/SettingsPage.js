@@ -150,10 +150,33 @@ export const SettingsPage = () => {
         const customData = await customRes.json();
         setCustomOptions(customData);
       }
+      if (aiRes.ok) {
+        const aiData = await aiRes.json();
+        setAiInstructions(aiData);
+      }
     } catch (error) {
       toast.error("Failed to load settings");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleSaveAiInstructions = async () => {
+    setSavingInstructions(true);
+    try {
+      const response = await authFetch(`${API}/settings/ai-instructions`, {
+        method: "POST",
+        body: JSON.stringify(aiInstructions)
+      });
+      if (response.ok) {
+        toast.success("AI instructions saved");
+      } else {
+        toast.error("Failed to save AI instructions");
+      }
+    } catch (error) {
+      toast.error("Failed to save AI instructions");
+    } finally {
+      setSavingInstructions(false);
     }
   };
 
