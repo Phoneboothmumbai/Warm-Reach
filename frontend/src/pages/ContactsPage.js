@@ -259,6 +259,11 @@ export const ContactsPage = () => {
     const file = e.target.files[0];
     if (!file) return;
 
+    if (!file.name.endsWith('.csv')) {
+      toast.error("Only CSV files are supported");
+      return;
+    }
+
     const formData = new FormData();
     formData.append("file", file);
 
@@ -268,17 +273,22 @@ export const ContactsPage = () => {
         body: formData
       });
 
+      const result = await response.json();
+      
       if (response.ok) {
-        const result = await response.json();
         toast.success(`Imported ${result.imported} contacts. ${result.duplicates} duplicates skipped.`);
+        if (result.errors && result.errors.length > 0) {
+          toast.warning(`${result.errors.length} rows had errors`);
+        }
         setImportDialogOpen(false);
         fetchContacts();
       } else {
-        const error = await response.json();
-        toast.error(error.detail || "Import failed");
+        toast.error(result.detail || "Import failed. Check your CSV format.");
+        console.error("Import error:", result);
       }
     } catch (error) {
-      toast.error("Import failed");
+      console.error("Import error:", error);
+      toast.error("Import failed. Please check your file and try again.");
     }
     
     if (fileInputRef.current) {
