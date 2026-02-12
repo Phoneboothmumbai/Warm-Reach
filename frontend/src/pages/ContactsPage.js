@@ -119,6 +119,65 @@ export const ContactsPage = () => {
     }
   };
 
+  const handleViewMessages = async (contact) => {
+    try {
+      const response = await authFetch(`${API}/contacts/${contact.id}/messages`);
+      if (response.ok) {
+        const data = await response.json();
+        setSelectedContactMessages({
+          contact: data.contact,
+          messages: data.messages,
+          outreach_paused: data.outreach_paused
+        });
+        setMessagesDialogOpen(true);
+      } else {
+        toast.error("Failed to load messages");
+      }
+    } catch (error) {
+      toast.error("Failed to load messages");
+    }
+  };
+
+  const handlePauseOutreach = async (contactId) => {
+    try {
+      const response = await authFetch(`${API}/contacts/${contactId}/pause`, {
+        method: "POST"
+      });
+      if (response.ok) {
+        toast.success("Outreach paused for this contact");
+        fetchContacts();
+        // Refresh messages dialog if open
+        if (messagesDialogOpen && selectedContactMessages.contact?.id === contactId) {
+          handleViewMessages(selectedContactMessages.contact);
+        }
+      } else {
+        toast.error("Failed to pause outreach");
+      }
+    } catch (error) {
+      toast.error("Failed to pause outreach");
+    }
+  };
+
+  const handleResumeOutreach = async (contactId) => {
+    try {
+      const response = await authFetch(`${API}/contacts/${contactId}/resume`, {
+        method: "POST"
+      });
+      if (response.ok) {
+        toast.success("Outreach resumed - scheduled dates shifted forward");
+        fetchContacts();
+        // Refresh messages dialog if open
+        if (messagesDialogOpen && selectedContactMessages.contact?.id === contactId) {
+          handleViewMessages(selectedContactMessages.contact);
+        }
+      } else {
+        toast.error("Failed to resume outreach");
+      }
+    } catch (error) {
+      toast.error("Failed to resume outreach");
+    }
+  };
+
   const handleCreateContact = async (e) => {
     e.preventDefault();
     try {
