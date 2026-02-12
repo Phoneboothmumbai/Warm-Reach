@@ -62,6 +62,16 @@ async def generate_ai_message(contact: Dict, blueprint: Dict, previous_messages:
         import random
         import time
         
+        # Fetch AI instructions for this tenant
+        custom_instructions = ""
+        if tenant_id:
+            ai_instructions = await db.ai_instructions.find_one({"tenant_id": tenant_id}, {"_id": 0})
+            if ai_instructions and ai_instructions.get("message_instructions"):
+                custom_instructions = f"""
+CUSTOM INSTRUCTIONS (MUST FOLLOW):
+{ai_instructions.get('message_instructions')}
+"""
+        
         # Fetch business profile for tenant (dynamic) - REQUIRED
         business_context = ""
         if tenant_id:
