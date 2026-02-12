@@ -788,6 +788,104 @@ Rahul,Kumar,rahul.kumar@startup.in,+919876543212,StartUp Inc,Founder,Bangalore,I
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* View Messages Dialog */}
+      <Dialog open={messagesDialogOpen} onOpenChange={setMessagesDialogOpen}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <MessageSquare className="w-5 h-5" />
+              Messages for {selectedContactMessages.contact?.first_name} {selectedContactMessages.contact?.last_name}
+            </DialogTitle>
+            <DialogDescription className="flex items-center justify-between">
+              <span>{selectedContactMessages.contact?.email}</span>
+              {selectedContactMessages.outreach_paused ? (
+                <Badge variant="outline" className="bg-yellow-500/10 text-yellow-600 border-yellow-500/20">
+                  <Pause className="w-3 h-3 mr-1" />
+                  Outreach Paused
+                </Badge>
+              ) : (
+                <Badge variant="outline" className="bg-green-500/10 text-green-600 border-green-500/20">
+                  <Play className="w-3 h-3 mr-1" />
+                  Active
+                </Badge>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="flex-1 overflow-auto min-h-0 -mx-6 px-6">
+            {selectedContactMessages.messages.length === 0 ? (
+              <div className="py-8 text-center text-muted-foreground">
+                <MessageSquare className="w-10 h-10 mx-auto mb-3 opacity-50" />
+                <p>No messages scheduled for this contact</p>
+              </div>
+            ) : (
+              <div className="space-y-3 py-4">
+                {selectedContactMessages.messages.map((message) => (
+                  <div 
+                    key={message.id} 
+                    className="p-4 rounded-lg border border-border bg-muted/20"
+                  >
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <Badge variant="outline" className="text-xs">
+                          {message.channel}
+                        </Badge>
+                        <Badge 
+                          variant="outline" 
+                          className={
+                            message.status === "sent" ? "bg-green-500/10 text-green-600" :
+                            message.status === "scheduled" ? "bg-blue-500/10 text-blue-600" :
+                            message.status === "pending_approval" ? "bg-yellow-500/10 text-yellow-600" :
+                            "bg-muted"
+                          }
+                        >
+                          {message.status?.replace("_", " ")}
+                        </Badge>
+                        <span className="text-xs text-muted-foreground">
+                          {message.blueprint_name}
+                        </span>
+                      </div>
+                      {message.scheduled_at && (
+                        <span className="text-xs text-muted-foreground flex items-center gap-1">
+                          <Calendar className="w-3 h-3" />
+                          {new Date(message.scheduled_at).toLocaleDateString()} {new Date(message.scheduled_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+          
+          <DialogFooter className="flex-shrink-0 gap-2">
+            {selectedContactMessages.outreach_paused ? (
+              <Button 
+                variant="outline" 
+                onClick={() => handleResumeOutreach(selectedContactMessages.contact?.id)}
+                className="text-green-600"
+              >
+                <Play className="w-4 h-4 mr-2" />
+                Resume Outreach
+              </Button>
+            ) : (
+              <Button 
+                variant="outline" 
+                onClick={() => handlePauseOutreach(selectedContactMessages.contact?.id)}
+                className="text-yellow-600"
+              >
+                <Pause className="w-4 h-4 mr-2" />
+                Pause Outreach
+              </Button>
+            )}
+            <Button variant="secondary" onClick={() => setMessagesDialogOpen(false)}>
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
