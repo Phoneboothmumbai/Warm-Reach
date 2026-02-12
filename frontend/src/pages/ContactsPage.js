@@ -577,6 +577,22 @@ export const ContactsPage = () => {
                       <DropdownMenuContent align="end">
                         <DropdownMenuLabel>Actions</DropdownMenuLabel>
                         <DropdownMenuSeparator />
+                        <DropdownMenuItem onClick={() => handleViewMessages(contact)}>
+                          <MessageSquare className="w-4 h-4 mr-2" />
+                          View Messages
+                        </DropdownMenuItem>
+                        {contact.outreach_paused ? (
+                          <DropdownMenuItem onClick={() => handleResumeOutreach(contact.id)}>
+                            <Play className="w-4 h-4 mr-2" />
+                            Resume Outreach
+                          </DropdownMenuItem>
+                        ) : (
+                          <DropdownMenuItem onClick={() => handlePauseOutreach(contact.id)}>
+                            <Pause className="w-4 h-4 mr-2" />
+                            Pause Outreach
+                          </DropdownMenuItem>
+                        )}
+                        <DropdownMenuSeparator />
                         <DropdownMenuItem onClick={() => openEditDialog(contact)}>
                           <Edit className="w-4 h-4 mr-2" />
                           Edit
