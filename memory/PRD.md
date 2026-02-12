@@ -93,6 +93,14 @@ Build a context-aware, controlled outreach SaaS that helps B2B service companies
 - [x] **AI Content Isolation Fix VERIFIED** - AI prompts now use ONLY tenant's Business Profile data
 - [x] Tested with restaurant business profiles - NO IT/technology contamination
 - [x] Proper error handling for tenants without business profiles
+- [x] Fixed CTA dropdown sync with custom options
+- [x] Changed `cta_type` from enum to string to support custom CTAs
+- [x] Added paragraph spacing instructions to AI prompts
+- [x] **Uncapped Message Generation** - Messages now auto-schedule into future (max 2/contact/month)
+- [x] **Batch limit**: 50 messages per request
+- [x] **Pause/Resume per Contact** - Scheduled dates shift forward when resumed
+- [x] **Messages Page Grouped View** - Collapsible contact groups with message counts
+- [x] **Contacts Page Integration** - "View Messages" and "Pause Outreach" in 3-dot menu
 
 ## P0 Features Remaining
 - [ ] AWS SES email sending integration
