@@ -101,6 +101,8 @@ Build a context-aware, controlled outreach SaaS that helps B2B service companies
 - [x] **Pause/Resume per Contact** - Scheduled dates shift forward when resumed
 - [x] **Messages Page Grouped View** - Collapsible contact groups with message counts
 - [x] **Contacts Page Integration** - "View Messages" and "Pause Outreach" in 3-dot menu
+- [x] **Bulk Blueprint Delete** - New optimized bulk delete API endpoint
+- [x] **AI Instructions** - Custom instructions for message & blueprint generation in Settings
 
 ## P0 Features Remaining
 - [ ] AWS SES email sending integration
