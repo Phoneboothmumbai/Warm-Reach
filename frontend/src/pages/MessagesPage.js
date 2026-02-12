@@ -572,7 +572,7 @@ export const MessagesPage = () => {
       )}
 
       {/* Filters */}
-      <div className="flex gap-4 flex-wrap">
+      <div className="flex gap-4 flex-wrap items-center">
         <Select value={statusFilter} onValueChange={setStatusFilter}>
           <SelectTrigger className="w-48" data-testid="message-status-filter">
             <Filter className="w-4 h-4 mr-2" />
@@ -598,12 +598,224 @@ export const MessagesPage = () => {
           </SelectContent>
         </Select>
 
+        <div className="flex border rounded-md">
+          <Button 
+            variant={viewMode === "grouped" ? "secondary" : "ghost"} 
+            size="sm"
+            onClick={() => setViewMode("grouped")}
+            className="rounded-r-none"
+            data-testid="view-grouped-btn"
+          >
+            <Users className="w-4 h-4 mr-2" />
+            By Contact
+          </Button>
+          <Button 
+            variant={viewMode === "list" ? "secondary" : "ghost"} 
+            size="sm"
+            onClick={() => setViewMode("list")}
+            className="rounded-l-none"
+            data-testid="view-list-btn"
+          >
+            <List className="w-4 h-4 mr-2" />
+            List
+          </Button>
+        </div>
+
         <Button variant="outline" size="icon" onClick={fetchData} data-testid="refresh-messages-btn">
           <RefreshCw className="w-4 h-4" />
         </Button>
+        
+        {viewMode === "grouped" && (
+          <span className="text-sm text-muted-foreground ml-auto">
+            {groupedData.total_contacts} contacts • {groupedData.total_messages} messages
+          </span>
+        )}
       </div>
 
-      {/* Messages List */}
+      {/* Grouped View */}
+      {viewMode === "grouped" && (
+        <Card className="card-surface">
+          <ScrollArea className="h-[600px]">
+            {loading ? (
+              <div className="p-8 text-center text-muted-foreground">
+                Loading messages...
+              </div>
+            ) : groupedData.contacts.length === 0 ? (
+              <div className="p-8 text-center">
+                <MessageSquare className="w-12 h-12 mx-auto mb-4 text-muted-foreground/50" />
+                <p className="text-lg font-medium mb-2">No messages yet</p>
+                <p className="text-muted-foreground mb-4">
+                  Click "Generate Batch" to automatically create unique messages
+                </p>
+                <Button onClick={() => setBatchDialogOpen(true)}>
+                  <Zap className="w-4 h-4 mr-2" />
+                  Generate Batch
+                </Button>
+              </div>
+            ) : (
+              <div className="divide-y divide-border">
+                {groupedData.contacts.map((contactGroup) => {
+                  const isExpanded = expandedContacts.has(contactGroup.contact_id);
+                  
+                  return (
+                    <div key={contactGroup.contact_id} className="border-b border-border last:border-b-0">
+                      {/* Contact Header Row */}
+                      <div 
+                        className={cn(
+                          "p-4 cursor-pointer hover:bg-muted/30 transition-colors flex items-center gap-4",
+                          contactGroup.outreach_paused && "opacity-60"
+                        )}
+                        onClick={() => toggleContactExpand(contactGroup.contact_id)}
+                      >
+                        <div className="flex-shrink-0">
+                          {isExpanded ? (
+                            <ChevronDown className="w-5 h-5 text-muted-foreground" />
+                          ) : (
+                            <ChevronRight className="w-5 h-5 text-muted-foreground" />
+                          )}
+                        </div>
+                        
+                        <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                          <User className="w-5 h-5 text-primary" />
+                        </div>
+                        
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <p className="font-medium truncate">{contactGroup.contact_name}</p>
+                            {contactGroup.outreach_paused && (
+                              <Badge variant="outline" className="bg-yellow-500/10 text-yellow-600 border-yellow-500/20">
+                                <Pause className="w-3 h-3 mr-1" />
+                                Paused
+                              </Badge>
+                            )}
+                          </div>
+                          <p className="text-sm text-muted-foreground truncate">
+                            {contactGroup.contact_email} {contactGroup.company_name && `• ${contactGroup.company_name}`}
+                          </p>
+                        </div>
+                        
+                        <div className="flex items-center gap-6 text-sm">
+                          <div className="text-center">
+                            <p className="font-semibold text-blue-600">{contactGroup.total_scheduled}</p>
+                            <p className="text-xs text-muted-foreground">Scheduled</p>
+                          </div>
+                          <div className="text-center">
+                            <p className="font-semibold text-yellow-600">{contactGroup.total_pending}</p>
+                            <p className="text-xs text-muted-foreground">Pending</p>
+                          </div>
+                          <div className="text-center">
+                            <p className="font-semibold text-green-600">{contactGroup.total_sent}</p>
+                            <p className="text-xs text-muted-foreground">Sent</p>
+                          </div>
+                          {contactGroup.next_scheduled && (
+                            <div className="text-center">
+                              <p className="font-semibold">{new Date(contactGroup.next_scheduled).toLocaleDateString()}</p>
+                              <p className="text-xs text-muted-foreground">Next</p>
+                            </div>
+                          )}
+                        </div>
+                        
+                        <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
+                          {contactGroup.outreach_paused ? (
+                            <Button 
+                              variant="outline" 
+                              size="sm"
+                              onClick={() => handleResumeContact(contactGroup.contact_id)}
+                              className="text-green-600 hover:bg-green-500/10"
+                            >
+                              <Play className="w-4 h-4 mr-1" />
+                              Resume
+                            </Button>
+                          ) : (
+                            <Button 
+                              variant="outline" 
+                              size="sm"
+                              onClick={() => handlePauseContact(contactGroup.contact_id)}
+                              className="text-yellow-600 hover:bg-yellow-500/10"
+                            >
+                              <Pause className="w-4 h-4 mr-1" />
+                              Pause
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                      
+                      {/* Expanded Messages */}
+                      {isExpanded && (
+                        <div className="bg-muted/20 border-t border-border">
+                          {contactGroup.messages.map((message) => {
+                            const ChannelIcon = channelIcons[message.channel] || Mail;
+                            const statusCfg = statusConfig[message.status] || statusConfig.draft;
+                            
+                            return (
+                              <div 
+                                key={message.id} 
+                                className="p-4 pl-16 border-b border-border/50 last:border-b-0 hover:bg-muted/30"
+                              >
+                                <div className="flex items-start gap-4">
+                                  <div className={cn("p-2 rounded-lg", `bg-${message.channel === 'whatsapp' ? 'green' : message.channel === 'linkedin' ? 'blue' : 'primary'}-500/10`)}>
+                                    <ChannelIcon className="w-4 h-4" />
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex items-center gap-2 mb-1">
+                                      <Badge className={cn("text-xs", statusCfg.color)}>
+                                        {statusCfg.label}
+                                      </Badge>
+                                      <span className="text-xs text-muted-foreground">
+                                        {message.blueprint_name}
+                                      </span>
+                                      {message.scheduled_at && (
+                                        <span className="text-xs text-muted-foreground flex items-center gap-1">
+                                          <Calendar className="w-3 h-3" />
+                                          {new Date(message.scheduled_at).toLocaleDateString()}
+                                        </span>
+                                      )}
+                                    </div>
+                                    <p className="text-sm whitespace-pre-wrap line-clamp-3">
+                                      {message.content}
+                                    </p>
+                                  </div>
+                                  <div className="flex gap-2">
+                                    {message.status === "pending_approval" && (
+                                      <Button 
+                                        variant="outline" 
+                                        size="sm"
+                                        onClick={() => handleApproveMessages([message.id])}
+                                      >
+                                        <CheckCircle className="w-4 h-4" />
+                                      </Button>
+                                    )}
+                                    {["draft", "pending_approval"].includes(message.status) && (
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => {
+                                          setSelectedMessage(message);
+                                          setEditedContent(message.content);
+                                          setEditDialogOpen(true);
+                                        }}
+                                      >
+                                        <Edit className="w-4 h-4" />
+                                      </Button>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </ScrollArea>
+        </Card>
+      )}
+
+      {/* List View - Messages List */}
+      {viewMode === "list" && (
       <Card className="card-surface">
         <ScrollArea className="h-[600px]">
           {loading ? (
