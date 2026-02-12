@@ -421,6 +421,12 @@ export const SettingsPage = () => {
             Organization
           </TabsTrigger>
           {isAdmin && (
+            <TabsTrigger value="ai-instructions" data-testid="settings-ai-tab">
+              <Sparkles className="w-4 h-4 mr-2" />
+              AI Instructions
+            </TabsTrigger>
+          )}
+          {isAdmin && (
             <TabsTrigger value="blueprints" data-testid="settings-blueprints-tab">
               <Target className="w-4 h-4 mr-2" />
               Blueprints
