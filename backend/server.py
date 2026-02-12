@@ -2429,8 +2429,8 @@ async def generate_batch_messages(
 ):
     """
     Automatically generate multiple unique messages at once.
-    - Max 2 messages per contact per month (spread over future months)
-    - Messages are scheduled for future dates automatically
+    - Uses different blueprints for each message to a contact
+    - Messages are scheduled for future dates automatically (max 2/contact/month)
     - Batch limit: 50 messages per request
     - Skips paused contacts
     """
@@ -2470,111 +2470,112 @@ async def generate_batch_messages(
     
     now = datetime.now(timezone.utc)
     
-    # Shuffle contacts and blueprints for variety
-    random.shuffle(contacts)
-    random.shuffle(blueprints)
-    
+    # Build list of all possible contact-blueprint combinations
+    combinations = []
     for contact in contacts:
+        for blueprint in blueprints:
+            combinations.append((contact, blueprint))
+    
+    # Shuffle for variety
+    random.shuffle(combinations)
+    
+    # Track which combinations we've already used (from DB)
+    for contact, blueprint in combinations:
         if len(generated) >= max_messages:
             break
         
-        # Find a suitable blueprint that hasn't been used for this contact
-        for blueprint in blueprints:
-            if len(generated) >= max_messages:
-                break
-                
-            channel = blueprint["channel"]
+        # Check if this blueprint was already used for this contact
+        blueprint_used = await db.messages.find_one({
+            "tenant_id": tenant_id,
+            "contact_id": contact["id"],
+            "blueprint_id": blueprint["id"]
+        })
+        if blueprint_used:
+            continue  # Try next combination
+        
+        channel = blueprint["channel"]
+        
+        try:
+            # Get previous messages for deduplication
+            previous_messages = await get_previous_messages_for_contact(
+                tenant_id, contact["id"], channel
+            )
             
-            # Check if this blueprint was already used for this contact
-            blueprint_used = await db.messages.find_one({
+            recent_messages = await db.messages.find(
+                {"tenant_id": tenant_id, "channel": channel},
+                {"_id": 0, "content": 1}
+            ).sort("created_at", -1).limit(20).to_list(20)
+            recent_contents = [m.get("content", "") for m in recent_messages if m.get("content")]
+            
+            all_previous = list(set(previous_messages + recent_contents))[:10]
+            
+            # Generate unique message using AI
+            content = await generate_ai_message(contact, blueprint, all_previous, tenant_id)
+            
+            # Create content hash for deduplication
+            content_hash = hashlib.md5(content.encode()).hexdigest()
+            
+            # Check for duplicate and regenerate if needed
+            duplicate = await db.messages.find_one({
                 "tenant_id": tenant_id,
-                "contact_id": contact["id"],
-                "blueprint_id": blueprint["id"]
+                "content_hash": content_hash
             })
-            if blueprint_used:
-                continue  # Try next blueprint
             
-            try:
-                # Get previous messages for deduplication
-                previous_messages = await get_previous_messages_for_contact(
-                    tenant_id, contact["id"], channel
-                )
-                
-                recent_messages = await db.messages.find(
-                    {"tenant_id": tenant_id, "channel": channel},
-                    {"_id": 0, "content": 1}
-                ).sort("created_at", -1).limit(20).to_list(20)
-                recent_contents = [m.get("content", "") for m in recent_messages if m.get("content")]
-                
-                all_previous = list(set(previous_messages + recent_contents))[:10]
-                
-                # Generate unique message using AI
-                content = await generate_ai_message(contact, blueprint, all_previous, tenant_id)
-                
-                # Create content hash for deduplication
+            regen_attempts = 0
+            while duplicate and regen_attempts < 3:
+                regen_attempts += 1
+                logger.info(f"Regenerating message (attempt {regen_attempts}) due to duplicate")
+                content = await generate_ai_message(contact, blueprint, all_previous + [content], tenant_id)
                 content_hash = hashlib.md5(content.encode()).hexdigest()
-                
-                # Check for duplicate and regenerate if needed
                 duplicate = await db.messages.find_one({
                     "tenant_id": tenant_id,
                     "content_hash": content_hash
                 })
-                
-                regen_attempts = 0
-                while duplicate and regen_attempts < 3:
-                    regen_attempts += 1
-                    logger.info(f"Regenerating message (attempt {regen_attempts}) due to duplicate")
-                    content = await generate_ai_message(contact, blueprint, all_previous + [content], tenant_id)
-                    content_hash = hashlib.md5(content.encode()).hexdigest()
-                    duplicate = await db.messages.find_one({
-                        "tenant_id": tenant_id,
-                        "content_hash": content_hash
-                    })
-                
-                if duplicate:
-                    errors.append(f"Could not generate unique message for {contact['email']}")
-                    continue
-                
-                # Calculate scheduled date: spread messages 14+ days apart, respecting 2/month rule
-                scheduled_at = await calculate_next_schedule_date(tenant_id, contact["id"], now)
-                
-                # Create message with scheduled date
-                message = Message(
-                    tenant_id=tenant_id,
-                    contact_id=contact["id"],
-                    blueprint_id=blueprint["id"],
-                    channel=channel,
-                    content=content,
-                    status=MessageStatus.PENDING_APPROVAL,
-                    content_hash=content_hash,
-                    scheduled_at=scheduled_at
-                )
-                
-                doc = message.model_dump()
-                doc['created_at'] = doc['created_at'].isoformat()
-                for field in ['scheduled_at', 'sent_at', 'delivered_at', 'approved_at']:
-                    if doc.get(field):
-                        doc[field] = doc[field].isoformat() if hasattr(doc[field], 'isoformat') else doc[field]
-                
-                await db.messages.insert_one(doc)
-                await db.blueprints.update_one({"id": blueprint["id"]}, {"$inc": {"usage_count": 1}})
-                
-                scheduled_info = f" (scheduled: {scheduled_at.strftime('%Y-%m-%d')})" if scheduled_at else ""
-                generated.append({
-                    "message_id": message.id,
-                    "contact_name": f"{contact['first_name']} {contact['last_name']}",
-                    "contact_email": contact['email'],
-                    "channel": channel,
-                    "blueprint_name": blueprint['name'],
-                    "content_preview": content[:150] + "..." if len(content) > 150 else content,
-                    "scheduled_at": scheduled_at.isoformat() if scheduled_at else None
-                })
-                
-                break  # Move to next contact after successful generation
-                
-            except Exception as e:
-                errors.append(f"Error generating for {contact['email']}: {str(e)}")
-                logger.error(f"Batch generation error: {e}")
+            
+            if duplicate:
+                errors.append(f"Could not generate unique message for {contact['email']}")
+                continue
+            
+            # Calculate scheduled date: spread messages 14+ days apart, respecting 2/month rule
+            scheduled_at = await calculate_next_schedule_date(tenant_id, contact["id"], now)
+            
+            # Create message with scheduled date
+            message = Message(
+                tenant_id=tenant_id,
+                contact_id=contact["id"],
+                blueprint_id=blueprint["id"],
+                channel=channel,
+                content=content,
+                status=MessageStatus.PENDING_APPROVAL,
+                content_hash=content_hash,
+                scheduled_at=scheduled_at
+            )
+            
+            doc = message.model_dump()
+            doc['created_at'] = doc['created_at'].isoformat()
+            for field in ['scheduled_at', 'sent_at', 'delivered_at', 'approved_at']:
+                if doc.get(field):
+                    doc[field] = doc[field].isoformat() if hasattr(doc[field], 'isoformat') else doc[field]
+            
+            await db.messages.insert_one(doc)
+            await db.blueprints.update_one({"id": blueprint["id"]}, {"$inc": {"usage_count": 1}})
+            
+            generated.append({
+                "message_id": message.id,
+                "contact_name": f"{contact['first_name']} {contact['last_name']}",
+                "contact_email": contact['email'],
+                "channel": channel,
+                "blueprint_name": blueprint['name'],
+                "content_preview": content[:150] + "..." if len(content) > 150 else content,
+                "scheduled_at": scheduled_at.isoformat() if scheduled_at else None
+            })
+            
+        except Exception as e:
+            errors.append(f"Error generating for {contact['email']}: {str(e)}")
+            logger.error(f"Batch generation error: {e}")
+    
+    if len(generated) == 0 and len(errors) == 0:
+        raise HTTPException(status_code=400, detail="All blueprint-contact combinations have been used. Create more blueprints or add more contacts.")
     
     await log_audit(tenant_id, current_user["id"], "batch_generate", "message", "bulk", {
         "generated": len(generated),
