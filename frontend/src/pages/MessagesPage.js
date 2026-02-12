@@ -70,6 +70,10 @@ export const MessagesPage = () => {
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState("all");
   const [channelFilter, setChannelFilter] = useState("all");
+  const [viewMode, setViewMode] = useState("grouped"); // "grouped" or "list"
+  const [groupedData, setGroupedData] = useState({ contacts: [], total_contacts: 0, total_messages: 0 });
+  const [expandedContacts, setExpandedContacts] = useState(new Set());
+  const [contactMessagesDialog, setContactMessagesDialog] = useState({ open: false, contact: null, messages: [] });
   
   const [batchDialogOpen, setBatchDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
@@ -81,7 +85,7 @@ export const MessagesPage = () => {
   
   const [batchForm, setBatchForm] = useState({
     channel: "",
-    max_messages: 10,
+    max_messages: 50,
     blueprint_id: ""
   });
 
@@ -97,7 +101,7 @@ export const MessagesPage = () => {
 
   useEffect(() => {
     fetchData();
-  }, [statusFilter, channelFilter]);
+  }, [statusFilter, channelFilter, viewMode]);
 
   const fetchData = async () => {
     setLoading(true);
