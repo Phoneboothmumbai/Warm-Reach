@@ -514,9 +514,16 @@ export const ContactsPage = () => {
                     />
                     <div className="grid grid-cols-12 gap-4 flex-1 items-center">
                       <div className="col-span-3">
-                        <p className="font-medium">
-                          {contact.first_name} {contact.last_name}
-                        </p>
+                        <div className="flex items-center gap-2">
+                          <p className="font-medium">
+                            {contact.first_name} {contact.last_name}
+                          </p>
+                          {contact.outreach_paused && (
+                            <Badge variant="outline" className="bg-yellow-500/10 text-yellow-600 border-yellow-500/20 text-xs px-1.5 py-0">
+                              <Pause className="w-3 h-3" />
+                            </Badge>
+                          )}
+                        </div>
                         {contact.job_title && (
                           <p className="text-sm text-muted-foreground truncate">
                             {contact.job_title}
