@@ -263,16 +263,18 @@ export const BlueprintsPage = () => {
     if (selectedBlueprints.length === 0) return;
     if (!confirm(`Are you sure you want to delete ${selectedBlueprints.length} blueprint(s)?`)) return;
     try {
-      let deleted = 0;
-      for (const id of selectedBlueprints) {
-        const response = await authFetch(`${API}/blueprints/${id}`, {
-          method: "DELETE"
-        });
-        if (response.ok) deleted++;
+      const response = await authFetch(`${API}/blueprints/bulk-delete`, {
+        method: "POST",
+        body: JSON.stringify({ blueprint_ids: selectedBlueprints })
+      });
+      if (response.ok) {
+        const result = await response.json();
+        toast.success(`Deleted ${result.deleted_count} blueprint(s)`);
+        setSelectedBlueprints([]);
+        fetchBlueprints();
+      } else {
+        toast.error("Failed to delete blueprints");
       }
-      toast.success(`Deleted ${deleted} blueprint(s)`);
-      setSelectedBlueprints([]);
-      fetchBlueprints();
     } catch (error) {
       toast.error("Failed to delete blueprints");
     }
