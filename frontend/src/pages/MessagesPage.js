@@ -17,7 +17,14 @@ import {
   Zap,
   Trash2,
   CheckSquare,
-  Square
+  Square,
+  ChevronDown,
+  ChevronRight,
+  Users,
+  List,
+  Pause,
+  Play,
+  User
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
