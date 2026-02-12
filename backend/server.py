@@ -151,9 +151,9 @@ Message Blueprint:
         
         # Channel-specific constraints
         channel_constraints = {
-            "email": "Keep it plain text, 4-6 lines max. No emojis. No links in first touch. One idea only.",
-            "whatsapp": "Max 3 short lines. One question max. Conversational tone. End with opt-out note.",
-            "linkedin": "No links. Use numbers over adjectives. One thought per post. Add line breaks."
+            "email": "Keep it plain text, 4-6 lines max. No emojis. No links in first touch. One idea only. Add a BLANK LINE between each paragraph for readability.",
+            "whatsapp": "Max 3 short paragraphs. One question max. Conversational tone. End with opt-out note. IMPORTANT: Add a BLANK LINE (empty line) between each paragraph/section for better readability.",
+            "linkedin": "No links. Use numbers over adjectives. One thought per post. Add line breaks between paragraphs."
         }
         
         constraints = channel_constraints.get(blueprint.get('channel', 'email'), channel_constraints['email'])
