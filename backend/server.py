@@ -444,6 +444,7 @@ STRICT RULES:
 6. Keep it natural and human-sounding
 7. Follow channel constraints strictly
 8. Do NOT reference any industry or products not mentioned in the business profile
+9. FORMAT: Add a BLANK LINE between each paragraph/section for better readability
 
 Return ONLY the message template text."""
 
