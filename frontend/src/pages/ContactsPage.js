@@ -77,6 +77,8 @@ export const ContactsPage = () => {
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [editContact, setEditContact] = useState(null);
   const [importDialogOpen, setImportDialogOpen] = useState(false);
+  const [messagesDialogOpen, setMessagesDialogOpen] = useState(false);
+  const [selectedContactMessages, setSelectedContactMessages] = useState({ contact: null, messages: [], outreach_paused: false });
   const fileInputRef = useRef(null);
 
   const [formData, setFormData] = useState({
