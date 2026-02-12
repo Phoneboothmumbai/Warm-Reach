@@ -437,6 +437,8 @@ Your new blueprint MUST:
         
         prompt = f"""Generate a unique B2B outreach message blueprint for the company described below. Variation #{variation_seed}
 
+{custom_instructions}
+
 {business_context}
 
 CHANNEL: {channel}
