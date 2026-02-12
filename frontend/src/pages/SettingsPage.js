@@ -606,6 +606,83 @@ export const SettingsPage = () => {
           </Card>
         </TabsContent>
 
+        {/* AI Instructions Tab */}
+        {isAdmin && (
+          <TabsContent value="ai-instructions" className="space-y-6">
+            <Card className="card-surface">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Sparkles className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+                  Message Generation Instructions
+                </CardTitle>
+                <CardDescription>
+                  Custom instructions that apply to all AI-generated messages. The AI will follow these rules when creating outreach messages.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <Textarea
+                  placeholder="Enter instructions for message generation...
+
+Example instructions:
+- Keep messages short and under 3 sentences
+- Don't start messages with the first name
+- Always mention our phone number: 9769444455
+- Use a friendly, conversational tone
+- Focus on value, not features"
+                  value={aiInstructions.message_instructions}
+                  onChange={(e) => setAiInstructions(prev => ({ ...prev, message_instructions: e.target.value }))}
+                  rows={8}
+                  className="font-mono text-sm"
+                  data-testid="message-instructions-textarea"
+                />
+              </CardContent>
+            </Card>
+
+            <Card className="card-surface">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Target className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                  Blueprint Generation Instructions
+                </CardTitle>
+                <CardDescription>
+                  Custom instructions that apply when generating message blueprints/templates.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <Textarea
+                  placeholder="Enter instructions for blueprint generation...
+
+Example instructions:
+- Focus on our value proposition
+- Use a casual, approachable tone
+- Emphasize quick response times
+- Include a soft call-to-action"
+                  value={aiInstructions.blueprint_instructions}
+                  onChange={(e) => setAiInstructions(prev => ({ ...prev, blueprint_instructions: e.target.value }))}
+                  rows={8}
+                  className="font-mono text-sm"
+                  data-testid="blueprint-instructions-textarea"
+                />
+              </CardContent>
+            </Card>
+
+            <div className="flex justify-end">
+              <Button 
+                onClick={handleSaveAiInstructions} 
+                disabled={savingInstructions}
+                data-testid="save-ai-instructions-btn"
+              >
+                {savingInstructions ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
+                  <Save className="w-4 h-4 mr-2" />
+                )}
+                Save Instructions
+              </Button>
+            </div>
+          </TabsContent>
+        )}
+
         {/* Blueprints Tab - Custom Intents & Angles */}
         {isAdmin && (
           <TabsContent value="blueprints" className="space-y-6">
