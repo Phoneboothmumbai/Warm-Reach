@@ -1943,6 +1943,31 @@ async def delete_blueprint(
     await log_audit(current_user["tenant_id"], current_user["id"], "delete", "blueprint", blueprint_id)
     return {"message": "Blueprint deleted"}
 
+class BulkBlueprintAction(BaseModel):
+    blueprint_ids: List[str]
+
+@api_router.post("/blueprints/bulk-delete")
+async def bulk_delete_blueprints(
+    data: BulkBlueprintAction,
+    current_user: Dict = Depends(get_current_user)
+):
+    """Delete multiple blueprints at once"""
+    if current_user["role"] not in [UserRole.OWNER, UserRole.ADMIN]:
+        raise HTTPException(status_code=403, detail="Only owners and admins can delete blueprints")
+    
+    result = await db.blueprints.delete_many({
+        "id": {"$in": data.blueprint_ids},
+        "tenant_id": current_user["tenant_id"]
+    })
+    
+    await log_audit(current_user["tenant_id"], current_user["id"], "bulk_delete", "blueprint", "bulk", {
+        "deleted": result.deleted_count
+    })
+    
+    return {"message": f"Deleted {result.deleted_count} blueprints", "deleted_count": result.deleted_count}
+
+
+
 @api_router.post("/blueprints/{blueprint_id}/approve")
 async def approve_blueprint(
     blueprint_id: str,
