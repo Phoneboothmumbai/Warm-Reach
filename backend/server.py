@@ -213,6 +213,7 @@ STRICT RULES:
 8. Be concise - respect their time
 9. If you don't have company details, focus on the recipient's role/position instead
 10. NEVER mention IT, tech stack, security, devices, or infrastructure unless it's in the business profile
+11. FORMAT: Add a BLANK LINE between each paragraph/section for readability
 
 OUTPUT: Generate ONLY the message text. No subject lines, no labels, no explanations."""
 
