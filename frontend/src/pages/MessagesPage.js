@@ -967,6 +967,7 @@ export const MessagesPage = () => {
           )}
         </ScrollArea>
       </Card>
+      )}
 
       {/* Batch Generate Dialog */}
       <Dialog open={batchDialogOpen} onOpenChange={setBatchDialogOpen}>
