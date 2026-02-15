@@ -2806,6 +2806,74 @@ async def schedule_message(
     
     return {"message": "Message scheduled", "scheduled_at": data.scheduled_at.isoformat()}
 
+class RescheduleRequest(BaseModel):
+    scheduled_at: datetime
+
+@api_router.post("/messages/{message_id}/reschedule")
+async def reschedule_message_post(
+    message_id: str,
+    data: RescheduleRequest,
+    current_user: Dict = Depends(get_current_user)
+):
+    """Reschedule a message to a new date/time"""
+    message = await db.messages.find_one(
+        {"id": message_id, "tenant_id": current_user["tenant_id"]},
+        {"_id": 0}
+    )
+    if not message:
+        raise HTTPException(status_code=404, detail="Message not found")
+    
+    if message["status"] not in [MessageStatus.SCHEDULED, MessageStatus.APPROVED, MessageStatus.PENDING_APPROVAL]:
+        raise HTTPException(status_code=400, detail="Cannot reschedule message with current status")
+    
+    scheduled_at = data.scheduled_at
+    
+    # Check: Minimum 30-minute gap between ANY scheduled messages
+    min_gap_minutes = 30
+    other_scheduled = await db.messages.find({
+        "tenant_id": current_user["tenant_id"],
+        "id": {"$ne": message_id},
+        "status": MessageStatus.SCHEDULED,
+        "scheduled_at": {"$ne": None}
+    }).to_list(500)
+    
+    for other_msg in other_scheduled:
+        try:
+            other_time_str = other_msg["scheduled_at"]
+            if isinstance(other_time_str, str):
+                if other_time_str.endswith("Z"):
+                    other_time_str = other_time_str.replace("Z", "+00:00")
+                other_time = datetime.fromisoformat(other_time_str)
+            else:
+                other_time = other_time_str
+            
+            # Ensure both are timezone-naive for comparison
+            sched_compare = scheduled_at.replace(tzinfo=None) if scheduled_at.tzinfo else scheduled_at
+            other_compare = other_time.replace(tzinfo=None) if other_time.tzinfo else other_time
+            
+            time_diff = abs((sched_compare - other_compare).total_seconds() / 60)
+            if time_diff < min_gap_minutes:
+                raise HTTPException(
+                    status_code=400, 
+                    detail=f"Must have at least {min_gap_minutes} minutes gap. Another message at {other_time.strftime('%H:%M')}"
+                )
+        except (ValueError, AttributeError):
+            continue
+    
+    await db.messages.update_one(
+        {"id": message_id},
+        {
+            "$set": {
+                "status": MessageStatus.SCHEDULED,
+                "scheduled_at": scheduled_at.isoformat()
+            }
+        }
+    )
+    
+    await log_audit(current_user["tenant_id"], current_user["id"], "reschedule", "message", message_id)
+    
+    return {"message": "Message rescheduled", "scheduled_at": scheduled_at.isoformat()}
+
 @api_router.put("/messages/{message_id}/reschedule")
 async def reschedule_message(
     message_id: str,
