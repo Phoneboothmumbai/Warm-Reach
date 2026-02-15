@@ -86,6 +86,7 @@ export const MessagesPage = () => {
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [scheduleDialogOpen, setScheduleDialogOpen] = useState(false);
   const [bulkScheduleDialogOpen, setBulkScheduleDialogOpen] = useState(false);
+  const [rescheduleDialogOpen, setRescheduleDialogOpen] = useState(false);
   const [selectedMessage, setSelectedMessage] = useState(null);
   const [generating, setGenerating] = useState(false);
   const [batchResult, setBatchResult] = useState(null);
@@ -98,6 +99,12 @@ export const MessagesPage = () => {
 
   const [editedContent, setEditedContent] = useState("");
   const [selectedMessages, setSelectedMessages] = useState([]);
+  
+  // Reschedule form state
+  const [rescheduleForm, setRescheduleForm] = useState({
+    date: "",
+    time: ""
+  });
   
   // Schedule form state
   const [scheduleForm, setScheduleForm] = useState({
