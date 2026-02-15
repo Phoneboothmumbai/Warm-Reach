@@ -1318,44 +1318,99 @@ async def calculate_next_schedule_date(tenant_id: str, contact_id: str, now: dat
     """
     Calculate the next available schedule date for a contact.
     Rules:
+    - Max 10 messages per day total (across all contacts)
+    - Max 1 message per contact per day
     - Max 2 messages per contact per month
-    - At least 14 days between messages
-    - Schedules into future months as needed
+    - At least 14 days between messages to same contact
     """
     try:
-        # Get all scheduled/pending messages for this contact, sorted by scheduled date
-        existing_messages = await db.messages.find({
+        # Start from tomorrow
+        candidate_date = (now + timedelta(days=1)).replace(hour=9, minute=0, second=0, microsecond=0)
+        
+        # Get this contact's scheduled messages to check 14-day gap and monthly limit
+        contact_messages = await db.messages.find({
             "tenant_id": tenant_id,
             "contact_id": contact_id,
-            "status": {"$in": [MessageStatus.PENDING_APPROVAL, MessageStatus.APPROVED, MessageStatus.SCHEDULED]},
+            "status": {"$in": [MessageStatus.PENDING_APPROVAL, MessageStatus.APPROVED, MessageStatus.SCHEDULED, MessageStatus.SENT]},
             "scheduled_at": {"$ne": None}
         }).sort("scheduled_at", -1).to_list(100)
         
-        if not existing_messages:
-            # No existing messages, schedule for tomorrow
-            return now + timedelta(days=1)
+        # Find the last scheduled/sent date for this contact
+        last_contact_date = None
+        if contact_messages:
+            last_scheduled = contact_messages[0].get("scheduled_at")
+            if last_scheduled:
+                if isinstance(last_scheduled, str):
+                    try:
+                        last_contact_date = datetime.fromisoformat(last_scheduled.replace('Z', '+00:00'))
+                    except:
+                        pass
+                else:
+                    last_contact_date = last_scheduled
         
-        # Find the last scheduled date
-        last_scheduled = existing_messages[0].get("scheduled_at")
-        if last_scheduled is None:
-            return now + timedelta(days=1)
+        # If contact has a recent message, start 14 days after that
+        if last_contact_date:
+            if last_contact_date.tzinfo is None:
+                last_contact_date = last_contact_date.replace(tzinfo=timezone.utc)
+            min_next_date = last_contact_date + timedelta(days=14)
+            if min_next_date > candidate_date:
+                candidate_date = min_next_date.replace(hour=9, minute=0, second=0, microsecond=0)
         
-        # Convert to datetime if string
-        if isinstance(last_scheduled, str):
-            try:
-                last_scheduled = datetime.fromisoformat(last_scheduled.replace('Z', '+00:00'))
-            except:
-                return now + timedelta(days=1)
+        # Now find a day that has < 10 messages scheduled
+        max_attempts = 365  # Don't search more than a year ahead
+        for _ in range(max_attempts):
+            # Get start and end of candidate day
+            day_start = candidate_date.replace(hour=0, minute=0, second=0, microsecond=0)
+            day_end = day_start + timedelta(days=1)
+            
+            # Count messages scheduled for this day
+            day_count = await db.messages.count_documents({
+                "tenant_id": tenant_id,
+                "status": {"$in": [MessageStatus.PENDING_APPROVAL, MessageStatus.APPROVED, MessageStatus.SCHEDULED]},
+                "scheduled_at": {
+                    "$gte": day_start.isoformat(),
+                    "$lt": day_end.isoformat()
+                }
+            })
+            
+            # Check if this contact already has a message on this day
+            contact_on_day = await db.messages.count_documents({
+                "tenant_id": tenant_id,
+                "contact_id": contact_id,
+                "status": {"$in": [MessageStatus.PENDING_APPROVAL, MessageStatus.APPROVED, MessageStatus.SCHEDULED]},
+                "scheduled_at": {
+                    "$gte": day_start.isoformat(),
+                    "$lt": day_end.isoformat()
+                }
+            })
+            
+            # Check monthly limit for this contact (max 2 per month)
+            month_start = candidate_date.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+            next_month = (month_start + timedelta(days=32)).replace(day=1)
+            contact_monthly = await db.messages.count_documents({
+                "tenant_id": tenant_id,
+                "contact_id": contact_id,
+                "status": {"$in": [MessageStatus.PENDING_APPROVAL, MessageStatus.APPROVED, MessageStatus.SCHEDULED, MessageStatus.SENT]},
+                "scheduled_at": {
+                    "$gte": month_start.isoformat(),
+                    "$lt": next_month.isoformat()
+                }
+            })
+            
+            # If day has room AND contact doesn't have message this day AND monthly limit not reached
+            if day_count < 10 and contact_on_day == 0 and contact_monthly < 2:
+                return candidate_date
+            
+            # If monthly limit reached, jump to next month
+            if contact_monthly >= 2:
+                candidate_date = next_month.replace(hour=9, minute=0, second=0, microsecond=0)
+            else:
+                # Try next day
+                candidate_date = candidate_date + timedelta(days=1)
         
-        # Ensure timezone aware
-        if last_scheduled.tzinfo is None:
-            last_scheduled = last_scheduled.replace(tzinfo=timezone.utc)
+        # Fallback: return 1 year from now
+        return now + timedelta(days=365)
         
-        # Next message should be at least 14 days after the last one
-        next_date = last_scheduled + timedelta(days=14)
-        
-        # Simple approach: just return 14 days after last scheduled
-        return next_date
     except Exception as e:
         logger.error(f"Error calculating schedule date: {e}")
         return now + timedelta(days=1)
