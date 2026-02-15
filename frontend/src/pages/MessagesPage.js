@@ -202,6 +202,34 @@ export const MessagesPage = () => {
     }
   };
 
+  const handleReschedule = async () => {
+    if (!selectedMessage || !rescheduleForm.date || !rescheduleForm.time) {
+      toast.error("Please select date and time");
+      return;
+    }
+    
+    try {
+      const scheduledAt = new Date(`${rescheduleForm.date}T${rescheduleForm.time}:00`);
+      
+      const response = await authFetch(`${API}/messages/${selectedMessage.id}/reschedule`, {
+        method: "POST",
+        body: JSON.stringify({ scheduled_at: scheduledAt.toISOString() })
+      });
+      
+      if (response.ok) {
+        toast.success("Message rescheduled successfully");
+        setRescheduleDialogOpen(false);
+        setSelectedMessage(null);
+        fetchData();
+      } else {
+        const error = await response.json();
+        toast.error(error.detail || "Failed to reschedule");
+      }
+    } catch (error) {
+      toast.error("Failed to reschedule message");
+    }
+  };
+
   const handleBatchGenerate = async () => {
     setGenerating(true);
     setBatchResult(null);
