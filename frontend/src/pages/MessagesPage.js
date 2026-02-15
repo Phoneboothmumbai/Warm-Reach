@@ -765,9 +765,9 @@ export const MessagesPage = () => {
                                         {message.blueprint_name}
                                       </span>
                                       {message.scheduled_at && (
-                                        <span className="text-xs text-muted-foreground flex items-center gap-1">
+                                        <span className="text-xs text-blue-500 flex items-center gap-1 font-medium">
                                           <Calendar className="w-3 h-3" />
-                                          {new Date(message.scheduled_at).toLocaleDateString()}
+                                          {new Date(message.scheduled_at).toLocaleDateString()} at {new Date(message.scheduled_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                         </span>
                                       )}
                                     </div>
@@ -775,17 +775,37 @@ export const MessagesPage = () => {
                                       {message.content}
                                     </p>
                                   </div>
-                                  <div className="flex gap-2">
+                                  <div className="flex gap-2 flex-shrink-0">
                                     {message.status === "pending_approval" && (
                                       <Button 
                                         variant="outline" 
                                         size="sm"
                                         onClick={() => handleApproveMessages([message.id])}
+                                        title="Approve & Schedule"
                                       >
                                         <CheckCircle className="w-4 h-4" />
                                       </Button>
                                     )}
-                                    {["draft", "pending_approval"].includes(message.status) && (
+                                    {message.status === "scheduled" && (
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => {
+                                          setSelectedMessage(message);
+                                          const dt = new Date(message.scheduled_at);
+                                          setRescheduleForm({
+                                            date: dt.toISOString().split('T')[0],
+                                            time: dt.toTimeString().slice(0, 5)
+                                          });
+                                          setRescheduleDialogOpen(true);
+                                        }}
+                                        title="Reschedule"
+                                        className="text-blue-600"
+                                      >
+                                        <Clock className="w-4 h-4" />
+                                      </Button>
+                                    )}
+                                    {["draft", "pending_approval", "scheduled"].includes(message.status) && (
                                       <Button
                                         variant="ghost"
                                         size="sm"
@@ -794,6 +814,7 @@ export const MessagesPage = () => {
                                           setEditedContent(message.content);
                                           setEditDialogOpen(true);
                                         }}
+                                        title="Edit content"
                                       >
                                         <Edit className="w-4 h-4" />
                                       </Button>
