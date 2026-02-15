@@ -1367,6 +1367,57 @@ export const MessagesPage = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Reschedule Dialog */}
+      <Dialog open={rescheduleDialogOpen} onOpenChange={setRescheduleDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Reschedule Message</DialogTitle>
+            <DialogDescription>
+              Change the scheduled date and time for this message
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Date</Label>
+              <Input
+                type="date"
+                value={rescheduleForm.date}
+                onChange={(e) => setRescheduleForm({ ...rescheduleForm, date: e.target.value })}
+                min={new Date().toISOString().split('T')[0]}
+                data-testid="reschedule-date"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Time</Label>
+              <Input
+                type="time"
+                value={rescheduleForm.time}
+                onChange={(e) => setRescheduleForm({ ...rescheduleForm, time: e.target.value })}
+                data-testid="reschedule-time"
+              />
+              <p className="text-xs text-muted-foreground">
+                Business hours: 9:00 AM - 6:00 PM recommended
+              </p>
+            </div>
+            {selectedMessage && (
+              <div className="p-3 bg-muted/50 rounded-lg">
+                <p className="text-xs text-muted-foreground mb-1">Message preview:</p>
+                <p className="text-sm line-clamp-2">{selectedMessage.content}</p>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRescheduleDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleReschedule} data-testid="confirm-reschedule-btn">
+              <Clock className="w-4 h-4 mr-2" />
+              Reschedule
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
