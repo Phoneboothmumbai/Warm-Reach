@@ -2727,28 +2727,55 @@ async def approve_messages(
     data: MessageApprove,
     current_user: Dict = Depends(get_current_user)
 ):
+    """Approve messages and auto-schedule them"""
     if current_user["role"] not in [UserRole.OWNER, UserRole.ADMIN, UserRole.SALES_USER]:
         raise HTTPException(status_code=403, detail="Not authorized to approve messages")
     
-    result = await db.messages.update_many(
-        {
-            "id": {"$in": data.message_ids},
-            "tenant_id": current_user["tenant_id"],
-            "status": MessageStatus.PENDING_APPROVAL
-        },
-        {
-            "$set": {
-                "status": MessageStatus.APPROVED,
-                "approved_by": current_user["id"],
-                "approved_at": datetime.now(timezone.utc).isoformat()
-            }
-        }
-    )
+    tenant_id = current_user["tenant_id"]
+    now = datetime.now(timezone.utc)
+    approved_count = 0
+    scheduled_count = 0
     
     for msg_id in data.message_ids:
-        await log_audit(current_user["tenant_id"], current_user["id"], "approve", "message", msg_id)
+        # Get the message
+        message = await db.messages.find_one({
+            "id": msg_id,
+            "tenant_id": tenant_id,
+            "status": MessageStatus.PENDING_APPROVAL
+        }, {"_id": 0})
+        
+        if not message:
+            continue
+        
+        # Calculate schedule time
+        contact_id = message.get("contact_id")
+        scheduled_at = await calculate_next_schedule_date(tenant_id, contact_id, now)
+        
+        # Update message: approve AND schedule in one step
+        await db.messages.update_one(
+            {"id": msg_id, "tenant_id": tenant_id},
+            {
+                "$set": {
+                    "status": MessageStatus.SCHEDULED,
+                    "approved_by": current_user["id"],
+                    "approved_at": now.isoformat(),
+                    "scheduled_at": scheduled_at.isoformat()
+                }
+            }
+        )
+        
+        approved_count += 1
+        scheduled_count += 1
+        
+        await log_audit(tenant_id, current_user["id"], "approve_schedule", "message", msg_id, {
+            "scheduled_at": scheduled_at.isoformat()
+        })
     
-    return {"approved_count": result.modified_count}
+    return {
+        "approved_count": approved_count,
+        "scheduled_count": scheduled_count,
+        "message": f"Approved and scheduled {scheduled_count} messages"
+    }
 
 @api_router.post("/messages/schedule")
 async def schedule_message(
