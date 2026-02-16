@@ -27,12 +27,43 @@ db = client[db_name]
 # WhatsApp Web Service URL
 WA_WEB_SERVICE_URL = os.environ.get('WA_WEB_SERVICE_URL', 'http://localhost:3001')
 
+def format_phone_for_whatsapp(phone: str) -> str:
+    """
+    Format phone number for WhatsApp international format.
+    - Strips all non-digit characters first
+    - Assumes 10-digit numbers without country code are Indian (+91)
+    - Returns format: +91XXXXXXXXXX
+    """
+    if not phone:
+        return phone
+    
+    # Remove all non-digit characters (spaces, dashes, +, etc.)
+    digits_only = ''.join(filter(str.isdigit, phone))
+    
+    # If it's a 10-digit number (Indian mobile without country code)
+    if len(digits_only) == 10:
+        return f"+91{digits_only}"
+    
+    # If it starts with 91 and has 12 digits total (Indian with country code but no +)
+    if len(digits_only) == 12 and digits_only.startswith('91'):
+        return f"+{digits_only}"
+    
+    # If it already has country code but missing +
+    if len(digits_only) > 10 and not phone.startswith('+'):
+        return f"+{digits_only}"
+    
+    # Already properly formatted or other format
+    if phone.startswith('+'):
+        return phone
+    
+    return f"+{digits_only}"
+
 async def send_whatsapp_message(tenant_id: str, phone: str, message: str) -> dict:
     """Send message via WhatsApp Web service"""
     try:
-        # Ensure phone has + prefix for international format
-        if phone and not phone.startswith('+'):
-            phone = '+' + phone
+        # Format phone number with proper country code
+        phone = format_phone_for_whatsapp(phone)
+        logger.info(f"Sending WhatsApp to formatted number: {phone}")
         
         async with httpx.AsyncClient(timeout=30.0) as client:
             response = await client.post(
