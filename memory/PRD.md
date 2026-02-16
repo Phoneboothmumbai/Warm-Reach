@@ -104,6 +104,13 @@ Build a context-aware, controlled outreach SaaS that helps B2B service companies
 - [x] **Bulk Blueprint Delete** - New optimized bulk delete API endpoint
 - [x] **AI Instructions** - Custom instructions for message & blueprint generation in Settings
 
+### February 16, 2026 Updates
+- [x] **WhatsApp Phone Number Formatting Fix VERIFIED** - Fixed bug where Indian phone numbers were sent without +91 country code
+  - Added `format_phone_for_whatsapp()` function in `scheduler.py`
+  - Handles all Indian number formats: 10-digit, with trunk prefix (0), with 91 prefix, with spaces/dashes
+  - All 25 test cases passed (100% success rate)
+  - Test files: `/app/backend/tests/test_phone_formatting.py`, `/app/backend/tests/test_whatsapp_phone_integration.py`
+
 ## P0 Features Remaining
 - [ ] AWS SES email sending integration
 - [ ] Full automation scheduler (10 WhatsApp + 10 email per day)
