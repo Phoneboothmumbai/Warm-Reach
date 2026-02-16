@@ -7,7 +7,7 @@ from datetime import datetime
 from typing import Dict, Any, Optional
 
 class WarmReachAPITester:
-    def __init__(self, base_url: str = "https://warm-outreach.preview.emergentagent.com"):
+    def __init__(self, base_url: str = "https://reachout-saas.preview.emergentagent.com"):
         self.base_url = base_url
         self.api_url = f"{base_url}/api"
         self.token = None

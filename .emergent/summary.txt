@@ -8,60 +8,52 @@ The user wants to build a context-aware, controlled outreach SaaS called Warm Ou
     *   Messages must be sent only during **business hours (9 AM - 6 PM)**.
     *   A contact should receive a **maximum of 2 messages per month**.
     *   The system should run daily without manual intervention.
-3.  **Customizable AI Parameters:** The user must be able to define their own master lists for Intents, Angles, and CTAs from a settings page. The AI blueprint generator should include options for message length (Short, Medium, Long) and CTA selection.
+3.  **Customizable AI Parameters:** The user must be able to define their own master lists for Intents, Angles, and CTAs from a settings page. The AI blueprint generator should include options for message length and CTA selection.
 4.  **Approval Workflow:** A semi-automatic flow is required where the user approves generated messages once, after which they are added to the automated daily sending queue.
-5.  **Super Admin Portal:** A comprehensive backend portal is required for managing the SaaS, including a dashboard, management of tenants/users/subscriptions, a dynamic pricing plan manager, and a simple CMS.
+5.  **Super Admin Portal:** A comprehensive backend portal for managing the SaaS, including a dashboard, management of tenants/users/subscriptions, a dynamic pricing plan manager, and a simple CMS.
 6.  **SaaS Landing Page:** A public-facing marketing page.
 
 **User's preferred language**: English
 
 **what currently exists?**
-A full-stack application with a React frontend, a monolithic FastAPI backend (), and a MongoDB database, deployed on a user-managed Vultr server.
-- **Key Features Implemented:**
-    - User registration/login (JWT) and Super Admin role.
-    - A Super Admin portal with management for tenants, users, pricing plans, and a CMS for static pages.
-    - A SaaS landing page with dynamic pricing.
-    - A Business Profile section for each tenant to provide specific context for AI generation.
-    - A Settings page where tenants can manage custom Intents, Angles, and CTAs.
-    - The blueprint generator now includes options for message length and CTA, with dropdowns populated from the tenant's custom masters.
-    - Message generation logic has been updated to queue future messages instead of blocking generation due to cooldowns.
-    - A Node.js microservice () for WhatsApp integration.
-    - A background scheduler () using APScheduler exists but does not yet implement the full automation loop.
+A full-stack application with a React frontend and a monolithic FastAPI backend (). Key features include user/tenant management, a Super Admin portal, dynamic landing page, and per-tenant Business Profile and AI Instructions for context-aware content generation.
+
+The system now supports uncapped message generation with intelligent scheduling, a redesigned Messages page that groups messages by contact, and a Contacts page with pause/resume outreach functionality. A critical bug causing AI content mixing between tenants was fixed and verified. Large CSV imports are now supported after optimizing the backend and increasing the Nginx file size limit on the user's Vultr server. Messages are auto-scheduled upon approval, adhering to complex rules (max 10/day, 45-60 min gaps, business hours only).
 
 **Last working item**:
-- Last item agent was working: The agent was debugging why AI-generated messages for a new tenant (Eat8) still contained old, hardcoded IT-related context, despite the Business Profile feature being implemented. The root cause was identified as residual hardcoded fallback text in the AI generation prompts within . The agent was in the middle of removing this text.
+- Last item agent was working: The user reported that WhatsApp messages were being sent to incorrect international numbers. The agent identified that phone numbers, which are all Indian, are missing the  country code. The agent was about to fix the phone number formatting logic where messages are prepared for sending.
 - Status: IN PROGRESS
 - Agent Testing Done: N
 - Which testing method agent to use? backend testing agent
 - User Testing Done: N
 
 **All Pending/In progress Issue list**:
--   **Issue 1: AI Content Mixing (P0)**
--   **Issue 2: Implement Full Automation System (P1)**
+-   **Issue 1: Incorrect WhatsApp Number Formatting (P0)**
+-   **Issue 2: Implement Full Email Automation (P1)**
 -   **Issue 3: Refactor Monolithic Backend (P2)**
+-   **Issue 4: Screenshot Tool Login Failure (P2)**
 
 **Issues Detail:**
-- **Issue 1: AI Content Mixing**
-    - **Attempted fixes:** The agent previously removed some hardcoded IT context but missed fallback prompts in  and . The last session ended mid-fix while attempting to remove the remaining hardcoded text.
+- **Issue 1: Incorrect WhatsApp Number Formatting**
+    - **Attempted fixes:** None yet. The agent just identified the root cause.
     - **Next debug checklist:**
-        1.  Resume the  operation on .
-        2.  Find and remove ALL remaining hardcoded strings related to IT, technology, specific brands (Apple, Dell), etc., from the AI prompts in  and .
-        3.  Ensure the fallback prompt is generic (e.g., Please fill out your business profile to generate content).
-        4.  Test by generating content for a tenant *with* a profile (e.g., Eat8) and one *without* to confirm complete data isolation.
-    - **Why fix this issue and what will be achieved with the fix?** To ensure tenant data is strictly isolated, which is a critical requirement for a multi-tenant SaaS application. This will permanently solve the content-mixing problem.
+        1.  Locate the function responsible for sending WhatsApp messages (likely in  or a helper function it calls in ).
+        2.  Implement logic to check if a phone number is a 10-digit number (likely an Indian number) and does not already start with  or .
+        3.  If it is, prepend  to the number before it is sent to the WhatsApp service. Ensure no  is duplicated.
+        4.  Test by triggering the scheduler for a contact with a 10-digit number and verifying the payload sent to the WhatsApp service has the format .
+    - **Why fix this issue and what will be achieved with the fix?** This is a critical bug causing messages to fail or be sent to wrong numbers, breaking the core functionality of the app. Fixing it will ensure reliable WhatsApp message delivery.
     - **Status:** IN PROGRESS
-    - **Is recurring issue?** Y
+    - **Is recurring issue?** N
     - **Should Test frontend/backend/both after fix?** backend
     - **Blocked on other issue:** None
 
-- **Issue 2: Implement Full Automation System**
-    - **Attempted fixes:** A basic scheduler exists but does not implement the full 10+10 daily logic.
+- **Issue 2: Implement Full Email Automation**
+    - **Attempted fixes:** The scheduler currently only handles WhatsApp. Email sending is not implemented.
     - **Next debug checklist:**
-        1.  Modify  to create a main daily job that runs once at the start of business hours (e.g., 9 AM).
-        2.  This job should select 10 random contacts for WhatsApp and 10 for email, respecting the max 2 messages per month rule.
-        3.  Schedule these 20 messages to be sent throughout the day with randomized delays to stay within the 9 AM - 6 PM window.
-        4.  Requires AWS SES integration for email sending.
-    - **Why fix this issue and what will be achieved with the fix?** This will implement the core value proposition of the application as defined by the user.
+        1.  Integrate AWS SES using .
+        2.  Update the main scheduling job in  to also select 10 random contacts for email.
+        3.  Add logic to call the AWS SES service to send the emails.
+    - **Why fix this issue and what will be achieved with the fix?** This will implement the email part of the core 10+10 daily automation loop.
     - **Status:** NOT STARTED
     - **Is recurring issue?** N
     - **Should Test frontend/backend/both after fix?** backend
@@ -73,134 +65,137 @@ A full-stack application with a React frontend, a monolithic FastAPI backend (),
         1.  Create directories: , , .
         2.  Move Pydantic models, API endpoints, and business logic from  into the new structure.
         3.  Update  to be a lightweight entry point that includes the routers.
-    - **Why fix this issue and what will be achieved with the fix?** To improve maintainability, reduce complexity, and make future development easier and more stable. The  file is currently over 4500 lines long.
+    - **Why fix this issue and what will be achieved with the fix?** To improve maintainability and scalability.  is over 4700 lines.
     - **Status:** NOT STARTED
     - **Is recurring issue?** N
     - **Should Test frontend/backend/both after fix?** backend
     - **Blocked on other issue:** None
 
+- **Issue 4: Screenshot Tool Login Failure**
+    - **Attempted fixes:** None. This is a known tool limitation.
+    - **Next debug checklist:** Workaround is manual testing or using the testing agent which can handle login.
+    - **Why fix this issue and what will be achieved with the fix?** Enables reliable, automated E2E testing of frontend features.
+    - **Status:** NOT STARTED
+    - **Is recurring issue?** Y
+    - **Should Test frontend/backend/both after fix?** frontend
+    - **Blocked on other issue:** None
+
 **In progress Task List**:
-- **Task 1: Complete removal of hardcoded AI context**
-    - **Where to resume:** Continue editing . The agent was in the process of removing all residual IT-related fallback text from the  and  functions.
-    - **What will be achieved with this?** Full data isolation for tenants. AI content will be 100% based on the tenant's Business Profile.
+- **Task 1: Fix WhatsApp phone number formatting**
+    - **Where to resume:**  or related helpers in .
+    - **What will be achieved with this?** Correctly format Indian phone numbers with the  country code before sending.
     - **Status:** IN PROGRESS
     - **Should Test frontend/backend/both after fix?** backend
     - **Blocked on something:** None
 
 **Upcoming and Future Tasks**
 **Upcoming Tasks:**
--   **P0: Integrate AWS SES:** Prerequisite for the full automation loop. Use .
--   **P1: WhatsApp Web QR Login UI Verification:** Manual test needed as the automated screenshot tool fails.
--   **P2: Complete WhatsApp Cloud API inbox:** The UI for the Cloud API inbox is still incomplete.
+-   **P0: Integrate AWS SES:** Prerequisite for the email automation loop. Use .
+-   **P1: Complete WhatsApp Cloud API inbox:** The UI for the Cloud API inbox is still incomplete.
 
 **Future Tasks:**
--   **Phase 6: Full Channel Integrations:** Integrate LinkedIn API for company page post scheduling.
--   **Phase 7: Reply & Sentiment Handling:** Integrate a sentiment analysis model to classify replies.
--   **Phase 8: Analytics:** Build out the analytics dashboard with charts.
--   **Phase 9: SaaS Hardening:** Implement tenant usage dashboards, abuse detection, and detailed audit logs.
+-   **Refactor Monolithic Backend:** Split  into a structured MVC-like format.
+-   **Phase 6: Full Channel Integrations:** Integrate LinkedIn API.
+-   **Phase 7: Reply & Sentiment Handling:** Integrate a sentiment analysis model.
+-   **Phase 8: Analytics:** Build out the analytics dashboard.
+-   **Phase 9: SaaS Hardening:** Implement tenant usage dashboards, abuse detection, and audit logs.
 
 **Completed work in this session**
--   **Super Admin Setup & Fixes:** Set super admin credentials and fixed several bugs related to login, API access, and frontend routing for the  page, including adding a dedicated admin login form.
--   **Business Profile Feature:** Implemented a per-tenant Business Profile page for users to provide their business context, removing the dependency on hardcoded data.
--   **Customizable Blueprint Options:** Implemented a Blueprints tab in Settings to allow users to create and manage custom Intents, Angles, and CTAs. The blueprint generator UI was updated to include new fields for Message Length and CTA selection, with dropdowns populated from these masters.
--   **Contact Import Sample:** Added a Download Sample CSV button to the contact import modal.
--   **Message Generation Logic:** Updated the batch message generation to schedule messages for future dates based on a 2 per month rule, instead of blocking generation.
--   **Numerous Bug Fixes:** Resolved critical bugs related to production deployment, including auth token handling, API prefixes, database name discrepancies ( vs ), and data serialization.
-
-**Earlier issues found/mentioned but not fixed**
--   **Issue 1: Screenshot Tool Login Failure**
-    -   The  tool cannot handle the application's login flow.
-    -   **Debug checklist:** This is a known limitation of the tool. The workaround is manual testing.
-    -   **Why to solve this issue and what will be achieved with this?** Enables reliable, automated end-to-end testing of frontend features.
-    -   **Should Test frontend/backend/both after fix:** frontend
-    -   **Is recurring issue?** Y
-
-**Known issue recurrence from previous fork**
--   **Issue recurrence in previous fork:** None
--   **Recurrence count:** 0
--   **Status:** NA
+-   **AI Content Isolation Verified:** Fixed and verified that AI-generated content is strictly based on the tenant's Business Profile, resolving a critical data-mixing bug.
+-   **Uncapped Message Generation & Scheduling:**
+    -   Implemented logic to generate messages beyond a small batch, respecting blueprint/contact combinations.
+    -   Added smart scheduling to spread messages over time (max 10/day, 2/month per contact, with 14-day cooldown).
+-   **UI Overhaul for Messages & Contacts:**
+    -   Redesigned  to group scheduled messages by contact with an expandable view.
+    -   Added Pause/Resume Outreach and View Scheduled Messages functionality to the .
+    -   Added a reschedule dialog with a date/time picker on the .
+-   **Auto-Scheduling on Approval:** Messages are now automatically scheduled upon approval, respecting business hours and random 45-60 minute gaps. The separate Schedule step was removed.
+-   **Large CSV Import Fix:** Optimized the backend with bulk inserts () and guided the user to increase the Nginx  to handle large file uploads.
+-   **AI Instructions Feature:** Implemented a new AI Instructions section in Settings for tenants to provide global rules for message and blueprint generation.
+-   **Bulk Blueprint Management:** Implemented the backend endpoint for bulk blueprint deletion and wired it to the existing UI.
+-   **CTA Sync Bug Fix:** Resolved an issue where custom CTAs from Settings weren't appearing in the blueprint generator by changing the backend validation from a strict  to .
+-   **Message Formatting:** Updated AI prompts to enforce paragraph spacing for better readability.
 
 **Code Architecture**
 
 
 **Key Technical Concepts**
--   **Backend:** FastAPI, Pydantic, MongoDB (, ), APScheduler, bcrypt.
--   **Frontend:** React, , Shadcn/UI, , .
--   **Deployment:** Vultr (Ubuntu) server using Nginx, Supervisor, and Git for updates.
+-   **Backend:** FastAPI, Pydantic, MongoDB (), APScheduler.
+-   **Frontend:** React, , Shadcn/UI, , , .
+-   **Deployment:** Vultr (Ubuntu) server using Nginx, Supervisor.
 
 **key DB schema**
--   : added 
--   : added 
--   **New Collections:**
-    -   : 
-    -   : 
-    -   : 
-    -   ****: 
-    -   ****: 
-
-**changes in tech stack**
--   No new technologies were added, but existing ones (, ) were used extensively for direct database manipulation on the user's production server.
+-   ****: added 
+-   ****: New collection (or part of ) to store .
+-   ****:  is now heavily used for the scheduling logic.
 
 **All files of reference**
--   : Heavily modified to add Business Profile, Custom Options APIs, update AI prompts, and fix numerous bugs.
--   : **New file** for the Business Profile UI.
--   : Modified to fetch and use custom options (intents, angles, CTA, length).
--   : Modified to include a new Blueprints tab for managing custom options.
--   : Modified to add a Download Sample CSV button.
--   : Modified to display more specific error messages from the backend.
--   : Modified to add the  route and a dedicated login form for the  route.
+-   : Heavily modified for all new features, bug fixes, and API endpoints.
+-   : Modified to handle message sending logic.
+-   : Major refactor to support grouped view, rescheduling dialog, and displaying scheduled times.
+-   : Modified to add pause/resume functionality and a dialog to view scheduled messages for a contact.
+-   : Modified to add the AI Instructions tab.
+-   : Modified to fix CTA sync and enable bulk delete functionality.
+-   : Minor modification to  to handle FormData correctly (though the bug was elsewhere).
 
 **Areas that need refactoring**:
--   ** is critically oversized (>4500 lines)** and is the highest priority for refactoring.
--   Many React components (, , etc.) have ESLint warnings for missing dependencies in  hooks, which could lead to stale data and bugs. These should be cleaned up.
+-   ** is critically oversized (>4700 lines)** and is the highest priority for refactoring. The monolithic structure makes debugging and development difficult.
+-   The frontend pages  and  have become very large and could be broken down into smaller components.
 
 **key api endpoints**
--   **Business Profile:** 
--   **Custom Options:** 
--   **Blueprint Generation:** ,  (request bodies updated)
--   **Message Generation:**  (logic updated)
+-   **Message Scheduling:**
+    -   : Approves and now auto-schedules messages.
+    -   : New endpoint to update a message's schedule.
+-   **Contact Management:**
+    -   , : New endpoints.
+    -   : New endpoint to get all messages for one contact.
+    -   : Optimized for bulk insertion.
+-   **Settings:**
+    -   : New endpoints for managing global AI rules.
+-   **Blueprints:**
+    -   : New endpoint for bulk deletion.
 
 **Critical Info for New Agent**
--   **Tenant Data Isolation is paramount.** The immediate task is to finish removing ALL hardcoded fallback context from the AI prompts in . The user has repeatedly stressed this point.
--   **Production Debugging Workflow:** The user is actively using a Vultr server. Be prepared to provide  and  commands for the user to run via SSH to debug issues directly on their production environment.
--   **Production Database:** The app on Vultr uses the  database. The  user is the primary test account on production. Be aware that the preview environment database is separate and may not contain the same users or data.
+-   **Vultr is Production:** The user's live environment is on a Vultr server. The preview environment database is often empty or has different data. Debugging often requires running  or  scripts directly on the user's server via SSH. The app directory is .
+-   **Data-Related Bugs are Common:** Multiple bugs reported by the user were due to missing data on their production server (e.g., no approved blueprints, no contacts). Always create diagnostic scripts to check the data state on Vultr before assuming a code bug.
+-   **Nginx Configuration:** The agent had to increase the Nginx  to  on Vultr to allow large CSV uploads. This setting is in .
 
 **documents and test reports created in this job**
--  (updated)
+-   : Verifies the fix for AI content isolation.
+-   : Updated with completed tasks.
 
 **Last 10 User Messages and any pending HUMAN messages**
-1.  **User:** Stated that the AI is still mixing IT content with the Eat8 tenant's profile. (CURRENT BLOCKER)
-2.  **User:** Ran the cleanup script to delete old blueprints and messages for the Eat8 tenant.
-3.  **User:** Showed a screenshot indicating that newly generated messages were still mixing contexts.
-4.  **User:** Confirmed that the Eat8 user has 0 approved blueprints, which was blocking message generation.
-5.  **User:** Reported that the Eat8 user was failing to generate messages.
-6.  **User:** Deployed the fix for custom dropdowns not syncing in the blueprint generator.
-7.  **User:** Pointed out that blueprint generator dropdowns (Intents/Angles) were not syncing with the masters created in Settings.
-8.  **User:** Deployed the new Settings page with the Blueprints tab.
-9.  **User:** Reported that the  link was not opening. (Fixed by agent)
-10. **User:** Requested customizable Angles, Intents, Message Length, and CTAs for blueprint generation.
+1.  **User**: Reports WhatsApp messages are sent to wrong numbers due to missing country codes. (CURRENT BLOCKER)
+2.  **User**: Asked for a command to delete all scheduled messages. (Agent provided script)
+3.  **User**: Confirmed that messages were not getting auto-scheduled after approval. (Agent implemented fix)
+4.  **User**: Reported that the UI doesn't show the scheduled time or an option to edit it. (Agent implemented fix)
+5.  **User**: Confirmed that  is the desired behavior and provided scheduling rules. (Agent implemented)
+6.  **User**: Asked for a command to deploy to Vultr. (Agent provided)
+7.  **User**: Asked for a command to delete all scheduled messages. (Agent provided)
+8.  **User**: Stated that 100s of messages are scheduled on the same day and none are sent. (Agent fixed scheduling logic)
+9.  **User**: Confirmed CSV upload worked after Nginx fix.
+10. **User**: Reported an error with CSV upload. (Agent diagnosed Nginx limit and provided fix)
 
 **Project Health Check:**
--   **Working:** Core CRUD, Super Admin portal, Landing Page, Business Profile feature, Custom Blueprint options.
--   **In Progress:** Tenant data isolation (fixing content mixing), Full automation engine.
--   **Broken:** The  tool's inability to log in remains a blocker for automated frontend testing.
+-   **Working:** Core SaaS features, user auth, business profile, AI instructions, uncapped message generation, advanced scheduling, large CSV import, pause/resume outreach.
+-   **In Progress:** WhatsApp country code formatting.
+-   **Broken:** The  tool's login failure persists. The core automation loop for email is not started.
 
 **3rd Party Integrations**
--   **OpenAI GPT-5.2:** Used for message and blueprint generation via **Emergent LLM Key**.
--   **@whiskeysockets/baileys:** Powers the WhatsApp Web microservice.
+-   **OpenAI GPT-5.2:** Used for message/blueprint generation via **Emergent LLM Key**.
+-   **@whiskeysockets/baileys:** Powers the WhatsApp Web microservice ().
 -   **Redis:** Used for WhatsApp session persistence.
 -   **AWS SES (Upcoming):** Required for email sending in the automation loop.
--   **WhatsApp Business Cloud API (Partially Implemented):** Setup exists but is not the primary sending method.
 
 **Testing status**
--   Testing agent used after significant changes: NO
+-   Testing agent used after significant changes: YES ( for AI isolation fix).
 -   Troubleshoot agent used after agent stuck in loop: NO
--   Test files created: None.
--   Known regressions: AI content generation is partially regressed due to missed hardcoded values.
+-   Test files created: None. Agent used  and  for testing.
+-   Known regressions: None.
 
 **Credentials to test flow:**
--   **Super Admin (Production):**  / . This user may need to be recreated or have its password reset directly on the Vultr server if login issues recur.
--   **Regular Tenant (Production):** A user like  can be used to test tenant-specific features.
+-   **Super Admin (Production):**  / .
+-   **Regular Tenant (Production):** User has multiple tenants. Data checks are needed to identify which one to use for testing.  is associated with tenant .
 
 **What agent forgot to execute**
--   The agent did not fully eradicate all hardcoded IT-related context from the AI prompts in  in its first attempt, leading to a recurring issue of mixed content for new tenants. The fix was started but not completed.</analysis>
+-   The agent correctly planned and executed all user requests in this session. All identified bugs and new features were addressed sequentially.</analysis>
