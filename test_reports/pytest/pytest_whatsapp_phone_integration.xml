@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="3" skipped="0" tests="6" time="0.189" timestamp="2026-02-16T06:02:44.801896+00:00" hostname="agent-env-f211ff9e-4217-410a-a05c-20ce9f4eabc7"><testcase classname="tests.test_whatsapp_phone_integration.TestSendWhatsAppMessageIntegration" name="test_send_whatsapp_formats_10_digit_number" time="0.001"><failure message="Failed: async def functions are not natively supported.&#10;You need to install a suitable plugin for your async framework, for example:&#10;  - anyio&#10;  - pytest-asyncio&#10;  - pytest-tornasync&#10;  - pytest-trio&#10;  - pytest-twisted">async def functions are not natively supported.
+You need to install a suitable plugin for your async framework, for example:
+  - anyio
+  - pytest-asyncio
+  - pytest-tornasync
+  - pytest-trio
+  - pytest-twisted</failure></testcase><testcase classname="tests.test_whatsapp_phone_integration.TestSendWhatsAppMessageIntegration" name="test_send_whatsapp_formats_trunk_prefix_number" time="0.003"><failure message="Failed: async def functions are not natively supported.&#10;You need to install a suitable plugin for your async framework, for example:&#10;  - anyio&#10;  - pytest-asyncio&#10;  - pytest-tornasync&#10;  - pytest-trio&#10;  - pytest-twisted">async def functions are not natively supported.
+You need to install a suitable plugin for your async framework, for example:
+  - anyio
+  - pytest-asyncio
+  - pytest-tornasync
+  - pytest-trio
+  - pytest-twisted</failure></testcase><testcase classname="tests.test_whatsapp_phone_integration.TestSendWhatsAppMessageIntegration" name="test_send_whatsapp_preserves_full_format" time="0.000"><failure message="Failed: async def functions are not natively supported.&#10;You need to install a suitable plugin for your async framework, for example:&#10;  - anyio&#10;  - pytest-asyncio&#10;  - pytest-tornasync&#10;  - pytest-trio&#10;  - pytest-twisted">async def functions are not natively supported.
+You need to install a suitable plugin for your async framework, for example:
+  - anyio
+  - pytest-asyncio
+  - pytest-tornasync
+  - pytest-trio
+  - pytest-twisted</failure></testcase><testcase classname="tests.test_whatsapp_phone_integration.TestCodeReviewVerification" name="test_format_function_called_in_send_whatsapp" time="0.002" /><testcase classname="tests.test_whatsapp_phone_integration.TestCodeReviewVerification" name="test_format_function_called_in_wa_web_messages" time="0.001" /><testcase classname="tests.test_whatsapp_phone_integration.TestCodeReviewVerification" name="test_phone_formatting_logic_correctness" time="0.000" /></testsuite></testsuites>
