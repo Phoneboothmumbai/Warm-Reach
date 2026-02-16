@@ -171,9 +171,7 @@ async def process_scheduled_messages():
             
             # If WhatsApp, also save to wa_web_messages so it shows in conversations
             if channel == "whatsapp":
-                phone = contact.get("phone", "")
-                if not phone.startswith('+'):
-                    phone = '+' + phone
+                phone = format_phone_for_whatsapp(contact.get("phone", ""))
                 
                 wa_message = {
                     "id": str(uuid.uuid4()),
