@@ -40,6 +40,10 @@ def format_phone_for_whatsapp(phone: str) -> str:
     # Remove all non-digit characters (spaces, dashes, +, etc.)
     digits_only = ''.join(filter(str.isdigit, phone))
     
+    # Remove leading 0 if present (Indian trunk dialing prefix)
+    if digits_only.startswith('0') and len(digits_only) == 11:
+        digits_only = digits_only[1:]
+    
     # If it's a 10-digit number (Indian mobile without country code)
     if len(digits_only) == 10:
         return f"+91{digits_only}"
